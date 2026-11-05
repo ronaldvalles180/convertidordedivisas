@@ -146,21 +146,21 @@
     <!-- Main Container -->
     <main class="max-w-5xl mx-auto px-2.5 sm:px-4 pt-1.5 sm:pt-2.5 space-y-1.5 sm:space-y-3">
 
-        <!-- SECTION 1: ULTRA-COMPACT 5-COLUMN RATE STRIP (All 5 visible without hiding) -->
-        <section aria-label="Selector de Tasas de Cambio" class="bg-white/60 dark:bg-slate-900/50 rounded-2xl p-1.5 sm:p-2 border border-slate-200/70 dark:border-slate-800/80">
-            <div class="flex items-center justify-between gap-1 mb-1 px-1">
-                <h2 class="text-[9px] sm:text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-1">
-                    <i class="fa-solid fa-chart-line text-brand-500 text-[9px]"></i>
+        <!-- SECTION 1: COMPACT 5-COLUMN RATE STRIP (All 5 visible with improved legibility) -->
+        <section aria-label="Selector de Tasas de Cambio" class="bg-white/60 dark:bg-slate-900/50 rounded-2xl p-2 sm:p-3 border border-slate-200/70 dark:border-slate-800/80">
+            <div class="flex items-center justify-between gap-1 mb-1.5 sm:mb-2 px-1">
+                <h2 class="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-1">
+                    <i class="fa-solid fa-chart-line text-brand-500 text-[10px]"></i>
                     <span>Tasa activa</span>
                 </h2>
-                <div class="flex items-center gap-1.5 text-[9px] sm:text-[11px] font-medium text-slate-500 dark:text-slate-400">
+                <div class="flex items-center gap-1.5 text-[10px] sm:text-xs font-medium text-slate-500 dark:text-slate-400">
                     <span>Prom: <strong id="midpointLabel" class="text-slate-700 dark:text-slate-200 font-mono">Bs. --</strong></span>
-                    <span class="px-1.5 py-0.2 rounded bg-amber-500/10 text-amber-600 dark:text-amber-400 font-mono text-[9px] sm:text-[10px]">Brecha: <strong id="brechaPercent">--%</strong></span>
+                    <span class="px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-600 dark:text-amber-400 font-mono text-[10px] sm:text-[11px]">Brecha: <strong id="brechaPercent">--%</strong></span>
                 </div>
             </div>
 
-            <!-- All 5 rates visible at once in a slim 5-column grid on mobile & desktop -->
-            <div id="ratesGrid" class="grid grid-cols-5 gap-1 sm:gap-2">
+            <!-- 3 cards on top row and 2 cards on bottom row -->
+            <div id="ratesGrid" class="grid grid-cols-6 gap-2 sm:gap-2.5">
                 <!-- Populated dynamically by JS -->
             </div>
         </section>
@@ -918,29 +918,30 @@
                 midpointEl.textContent = `Bs. ${formatVeNumber(midpoint)}`;
             }
 
-            container.innerHTML = RATE_DEFINITIONS.map((def) => {
+            container.innerHTML = RATE_DEFINITIONS.map((def, idx) => {
                 const isActive = def.id === appState.activeRateId;
                 const val = appState.rates[def.id] || def.defaultRate;
                 const modeInfo = getModeBadgeInfo(def.id);
                 const flashClass = animateFlash && modeInfo.isAuto ? 'rate-flash' : '';
+                const spanClass = idx < 3 ? 'col-span-2' : 'col-span-3';
                 
                 return `
                     <div
                         onclick="selectRate('${def.id}')"
                         role="button"
                         tabindex="0"
-                        class="group cursor-pointer relative text-left rounded-lg sm:rounded-xl px-1.5 py-1 sm:px-2.5 sm:py-1.5 transition-all duration-150 border min-w-0 ${flashClass} ${
+                        class="${spanClass} group cursor-pointer relative text-left rounded-2xl px-3 py-2.5 sm:px-4 sm:py-3 transition-all duration-150 border min-w-0 ${flashClass} ${
                             isActive
                                 ? 'bg-white dark:bg-slate-800 border-brand-500 card-active-ring'
                                 : 'bg-white/85 dark:bg-darkcard/90 border-slate-200/80 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700'
                         }"
                     >
-                        <div class="flex items-center justify-between gap-0.5">
-                            <div class="flex items-center gap-1 min-w-0">
-                                <span class="w-3.5 h-3.5 sm:w-4 sm:h-4 rounded ${def.colorClass} text-white flex items-center justify-center text-[8px] sm:text-[9px] shrink-0">
+                        <div class="flex items-center justify-between gap-1">
+                            <div class="flex items-center gap-1.5 min-w-0">
+                                <span class="w-5 h-5 sm:w-6 sm:h-6 rounded-lg ${def.colorClass} text-white flex items-center justify-center text-[10px] sm:text-xs shrink-0 shadow-xs">
                                     <i class="${def.icon}"></i>
                                 </span>
-                                <span class="text-[9px] sm:text-[11px] font-bold text-slate-600 dark:text-slate-300 truncate leading-none">
+                                <span class="text-xs sm:text-sm font-bold text-slate-700 dark:text-slate-200 truncate leading-none">
                                     <span class="sm:hidden">${def.shortName}</span>
                                     <span class="hidden sm:inline">${def.name}</span>
                                 </span>
@@ -951,16 +952,16 @@
                                 type="button"
                                 onclick="toggleCardLockMode(event, '${def.id}')"
                                 title="Alternar entre Automático y Manual fijo"
-                                class="flex items-center justify-center px-1 py-0.5 rounded border text-[7px] font-bold uppercase transition active:scale-95 shrink-0 ${modeInfo.badgeClass}"
+                                class="flex items-center justify-center px-1.5 py-0.5 rounded-md border text-[9px] sm:text-[10px] font-bold uppercase transition active:scale-95 shrink-0 ${modeInfo.badgeClass}"
                             >
-                                <i class="${modeInfo.icon} text-[7px]"></i>
-                                <span class="hidden md:inline ml-0.5">${modeInfo.subLabel}</span>
+                                <i class="${modeInfo.icon} text-[8px]"></i>
+                                <span class="ml-1">${modeInfo.subLabel}</span>
                             </button>
                         </div>
 
-                        <div class="mt-0.5 flex items-baseline justify-center sm:justify-start gap-0.5 min-w-0">
-                            <span class="hidden sm:inline text-[9px] font-mono text-slate-400">Bs.</span>
-                            <span class="font-mono font-extrabold text-[11px] sm:text-sm text-slate-900 dark:text-white tracking-tight truncate leading-tight">
+                        <div class="mt-2 flex items-baseline justify-start gap-1 min-w-0">
+                            <span class="text-[11px] sm:text-xs font-mono font-semibold text-slate-400">Bs.</span>
+                            <span class="font-mono font-extrabold text-base sm:text-lg text-slate-900 dark:text-white tracking-tight truncate leading-tight">
                                 ${formatVeNumber(val)}
                             </span>
                         </div>
