@@ -1,0 +1,1607 @@
+<!-- ... existing code ... -->
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Al Cambio Personal - Calculadora de Divisas</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            50: '#ecfdf5',
+                            100: '#d1fae5',
+                            400: '#34d399',
+                            500: '#10b981',
+                            600: '#059669',
+                            700: '#047857'
+                        },
+                        darkbg: '#0f172a',
+                        darkcard: '#1e293b'
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'Menlo', 'Monaco', 'Courier New', 'monospace']
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts Inter & JetBrains Mono -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+    <style>
+        /* Custom Scrollbar & Number Input Reset */
+        input[type="number"]::-webkit-inner-spin-button,
+        input[type="number"]::-webkit-outer-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+        input[type="number"] {
+            -moz-appearance: textfield;
+        }
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+        /* Mobile touch ergonomics */
+        * {
+            -webkit-tap-highlight-color: transparent;
+        }
+        body {
+            touch-action: manipulation;
+            overscroll-behavior-y: none;
+        }
+        @keyframes pulse-soft {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.6; }
+        }
+        .animate-pulse-soft {
+            animation: pulse-soft 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+        .card-active-ring {
+            box-shadow: 0 0 0 2px #10b981, 0 6px 16px -4px rgba(16, 185, 129, 0.32);
+        }
+        @keyframes rate-updated-flash {
+            0% { transform: scale(1); }
+            35% { transform: scale(1.02); box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.45); }
+            100% { transform: scale(1); }
+        }
+        .rate-flash {
+            animation: rate-updated-flash 0.65s ease-out;
+        }
+        .glass-header {
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+        }
+        .safe-bottom-bar {
+            padding-bottom: calc(0.75rem + env(safe-area-inset-bottom, 0px));
+        }
+    </style>
+</head>
+<body class="bg-slate-100 dark:bg-darkbg text-slate-800 dark:text-slate-100 font-sans min-h-screen transition-colors duration-200 selection:bg-brand-500 selection:text-white pb-32 lg:pb-12">
+
+    <!-- Toast Notification Container -->
+    <div id="toastContainer" class="fixed top-3 right-3 left-3 sm:left-auto z-50 flex flex-col gap-2 pointer-events-none"></div>
+
+    <!-- Top Navigation Bar (Ultra-Compact & Thumb-Friendly on Mobile) -->
+    <header class="sticky top-0 z-30 bg-white/90 dark:bg-darkbg/90 glass-header border-b border-slate-200/80 dark:border-slate-800/80">
+        <div class="max-w-5xl mx-auto px-2.5 sm:px-4 py-1.5 sm:py-2.5 flex items-center justify-between gap-2">
+            <!-- Brand Logo & Title -->
+            <div class="flex items-center gap-2 min-w-0">
+                <div class="w-7 h-7 sm:w-9 sm:h-9 rounded-lg sm:rounded-xl bg-gradient-to-br from-brand-400 to-brand-600 flex items-center justify-center text-white shadow-sm shadow-brand-500/25 shrink-0">
+                    <i class="fa-solid fa-money-bill-transfer text-xs sm:text-base"></i>
+                </div>
+                <div class="min-w-0">
+                    <div class="flex items-center gap-1.5">
+                        <h1 class="font-extrabold text-sm sm:text-base tracking-tight leading-none text-slate-900 dark:text-white truncate">Al Cambio</h1>
+                        <span id="lastUpdatedLabel" class="text-[10px] text-slate-500 dark:text-slate-400 flex items-center gap-1 truncate">
+                            <span id="statusDot" class="w-1.5 h-1.5 rounded-full bg-brand-500 inline-block animate-pulse-soft shrink-0"></span>
+                            <span class="truncate">Sincronizando...</span>
+                        </span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Action Buttons (Optimized for quick touch) -->
+            <div class="flex items-center gap-1 shrink-0">
+                <!-- Sync Rates Button -->
+                <button id="btnSyncRates" onclick="syncOnlineRates(false, false)" title="Actualizar tasas ahora"
+                    class="flex items-center justify-center gap-1 h-7 sm:h-8 px-2 sm:px-2.5 rounded-lg text-[11px] font-semibold bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 transition active:scale-95">
+                    <i id="syncIcon" class="fa-solid fa-rotate text-brand-500 text-xs"></i>
+                    <span class="hidden sm:inline">Sincronizar</span>
+                </button>
+
+                <!-- Edit Rates & Auto-Update Rules Button -->
+                <button onclick="openEditRatesModal()" title="Configurar modo automático o tasas manuales"
+                    class="flex items-center gap-1 px-2 sm:px-2.5 h-7 sm:h-8 rounded-lg text-[11px] font-semibold bg-brand-500/10 hover:bg-brand-500/20 text-brand-600 dark:text-brand-400 border border-brand-500/20 transition active:scale-95">
+                    <i class="fa-solid fa-sliders text-xs"></i>
+                    <span class="text-[10px] sm:text-xs">Tasas</span>
+                </button>
+
+                <!-- Pago Movil Config Button -->
+                <button onclick="openPagoMovilModal()" title="Configurar mis datos de Pago Móvil"
+                    class="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 flex items-center justify-center transition active:scale-95">
+                    <i class="fa-solid fa-mobile-screen-button text-xs"></i>
+                </button>
+
+                <!-- Dark/Light Theme Toggle -->
+                <button id="themeToggleBtn" onclick="toggleTheme()" title="Cambiar tema claro/oscuro"
+                    class="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-amber-400 flex items-center justify-center transition active:scale-95">
+                    <i id="themeIcon" class="fa-solid fa-sun text-xs"></i>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <main class="max-w-5xl mx-auto px-2.5 sm:px-4 pt-1.5 sm:pt-2.5 space-y-1.5 sm:space-y-3">
+
+        <!-- SECTION 1: ULTRA-COMPACT 5-COLUMN RATE STRIP (All 5 visible without hiding) -->
+        <section aria-label="Selector de Tasas de Cambio" class="bg-white/60 dark:bg-slate-900/50 rounded-2xl p-1.5 sm:p-2 border border-slate-200/70 dark:border-slate-800/80">
+            <div class="flex items-center justify-between gap-1 mb-1 px-1">
+                <h2 class="text-[9px] sm:text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-1">
+                    <i class="fa-solid fa-chart-line text-brand-500 text-[9px]"></i>
+                    <span>Tasa activa</span>
+                </h2>
+                <div class="flex items-center gap-1.5 text-[9px] sm:text-[11px] font-medium text-slate-500 dark:text-slate-400">
+                    <span>Prom: <strong id="midpointLabel" class="text-slate-700 dark:text-slate-200 font-mono">Bs. --</strong></span>
+                    <span class="px-1.5 py-0.2 rounded bg-amber-500/10 text-amber-600 dark:text-amber-400 font-mono text-[9px] sm:text-[10px]">Brecha: <strong id="brechaPercent">--%</strong></span>
+                </div>
+            </div>
+
+            <!-- All 5 rates visible at once in a slim 5-column grid on mobile & desktop -->
+            <div id="ratesGrid" class="grid grid-cols-5 gap-1 sm:gap-2">
+                <!-- Populated dynamically by JS -->
+            </div>
+        </section>
+
+        <!-- MOBILE VIEW SWITCHER (Slim Touch Pills) -->
+        <div class="flex lg:hidden bg-slate-200/90 dark:bg-slate-900/90 p-0.5 rounded-xl border border-slate-300/60 dark:border-slate-800 shadow-inner">
+            <button id="tabBtnCalc" onclick="setMobileView('calc')"
+                class="flex-1 py-1.5 rounded-lg text-[11px] font-bold transition flex items-center justify-center gap-1 bg-white dark:bg-darkcard text-slate-900 dark:text-white shadow-sm">
+                <i class="fa-solid fa-calculator text-brand-500 text-[10px]"></i>
+                <span>Calculadora</span>
+            </button>
+            <button id="tabBtnComp" onclick="setMobileView('comp')"
+                class="flex-1 py-1.5 rounded-lg text-[11px] font-bold transition flex items-center justify-center gap-1 text-slate-500 dark:text-slate-400">
+                <i class="fa-solid fa-scale-balanced text-[10px]"></i>
+                <span>Comparar</span>
+                <span id="mobileCompBadge" class="text-[9px] font-mono px-1 py-0.1 rounded-full bg-brand-500/15 text-brand-500">$1</span>
+            </button>
+            <button id="tabBtnBoth" onclick="setMobileView('both')" title="Ver todo junto"
+                class="px-3 py-1.5 rounded-lg text-[11px] font-bold transition flex items-center justify-center text-slate-500 dark:text-slate-400">
+                <i class="fa-solid fa-table-list text-[10px]"></i>
+            </button>
+        </div>
+
+        <!-- SECTION 2: MAIN TWO-WAY CALCULATOR & SIMULTANEOUS BREAKDOWN -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6 items-start">
+
+            <!-- Left Column: Bidirectional Calculator (7 cols on desktop) -->
+            <div id="calcColumnWrapper" class="lg:col-span-7 bg-white dark:bg-darkcard rounded-3xl p-4 sm:p-6 shadow-sm border border-slate-200/80 dark:border-slate-800/90 space-y-3.5 sm:space-y-5">
+                
+                <!-- Calculator Header with Active Rate Pill & Quick Edit -->
+                <div class="flex items-center justify-between gap-2 pb-2.5 sm:pb-3 border-b border-slate-100 dark:border-slate-800">
+                    <div class="flex items-center gap-2.5 min-w-0">
+                        <span id="activeRateBadgeIcon" class="w-9 h-9 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center text-white font-bold text-sm bg-brand-500 shrink-0 shadow-sm">
+                            $
+                        </span>
+                        <div class="min-w-0">
+                            <div class="flex items-center gap-1">
+                                <h3 id="activeRateTitle" class="font-bold text-slate-900 dark:text-white text-sm sm:text-base truncate">Dólar BCV</h3>
+                                <button onclick="promptQuickSingleRateEdit()" class="text-xs text-slate-400 hover:text-brand-500 transition p-1" title="Editar esta tasa rápidamente">
+                                    <i class="fa-solid fa-pen"></i>
+                                </button>
+                            </div>
+                            <p class="text-[11px] sm:text-xs text-slate-500 dark:text-slate-400">
+                                1 <span id="activeUnitSymbol">USD</span> = <strong id="activeRateValueDisplay" class="font-mono text-slate-700 dark:text-slate-200">0,00</strong> Bs.
+                            </p>
+                        </div>
+                    </div>
+
+                    <!-- Optional IGTF (+3%) Toggle -->
+                    <label class="inline-flex items-center gap-1.5 cursor-pointer select-none bg-slate-100 dark:bg-slate-800/90 px-3 py-1.5 rounded-xl border border-transparent hover:border-brand-500/30 transition shrink-0">
+                        <input type="checkbox" id="igtfToggle" onchange="handleIgtfChange()" class="sr-only peer">
+                        <div class="w-8 h-4 bg-slate-300 dark:bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-3 after:w-3 after:transition-all relative peer-checked:bg-brand-500"></div>
+                        <span class="text-[11px] sm:text-xs font-semibold text-slate-600 dark:text-slate-300">+3% IGTF</span>
+                    </label>
+                </div>
+
+                <!-- Input 1: Foreign Currency (USD / EUR / USDT) -->
+                <div class="space-y-1">
+                    <div class="flex items-center justify-between text-xs font-semibold text-slate-500 dark:text-slate-400 px-1">
+                        <span id="foreignInputLabel">Monto en Divisa (USD)</span>
+                        <button onclick="copyValue('foreign')" class="hover:text-brand-500 active:scale-95 flex items-center gap-1 py-1 px-2 rounded-lg bg-slate-100 dark:bg-slate-800/80 text-[11px] transition">
+                            <i class="fa-regular fa-copy"></i> Copiar
+                        </button>
+                    </div>
+                    <div class="relative flex items-center bg-slate-50 dark:bg-slate-900/80 rounded-2xl border-2 border-slate-200 dark:border-slate-800 focus-within:border-brand-500 dark:focus-within:border-brand-500 transition-all px-3.5 sm:px-4 py-3 sm:py-3.5">
+                        <span id="foreignCurrencyPrefix" class="font-mono text-xl sm:text-2xl font-bold text-brand-500 mr-2.5 select-none">$</span>
+                        <input
+                            type="text"
+                            inputmode="decimal"
+                            enterkeyhint="done"
+                            autocomplete="off"
+                            autocorrect="off"
+                            id="foreignInput"
+                            value="1"
+                            placeholder="0.00"
+                            oninput="onForeignInput(this.value)"
+                            onfocus="this.select()"
+                            class="w-full bg-transparent font-mono text-2xl sm:text-3xl font-bold text-slate-900 dark:text-white focus:outline-none"
+                        >
+                        <button onclick="clearCalculator()" title="Limpiar" class="w-9 h-9 rounded-xl bg-slate-200/70 dark:bg-slate-800 text-slate-500 hover:text-rose-500 flex items-center justify-center transition active:scale-90 shrink-0">
+                            <i class="fa-solid fa-xmark text-sm"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Quick Preset Chips: Ergonomic 6-col touch grid -->
+                <div class="grid grid-cols-6 gap-1.5">
+                    <button onclick="setForeignPreset(1)" class="py-2.5 rounded-xl text-xs font-mono font-bold bg-slate-100 active:bg-brand-500 active:text-white sm:hover:bg-brand-500 sm:hover:text-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 transition active:scale-95 shadow-xs">$1</button>
+                    <button onclick="setForeignPreset(5)" class="py-2.5 rounded-xl text-xs font-mono font-bold bg-slate-100 active:bg-brand-500 active:text-white sm:hover:bg-brand-500 sm:hover:text-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 transition active:scale-95 shadow-xs">$5</button>
+                    <button onclick="setForeignPreset(10)" class="py-2.5 rounded-xl text-xs font-mono font-bold bg-slate-100 active:bg-brand-500 active:text-white sm:hover:bg-brand-500 sm:hover:text-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 transition active:scale-95 shadow-xs">$10</button>
+                    <button onclick="setForeignPreset(20)" class="py-2.5 rounded-xl text-xs font-mono font-bold bg-slate-100 active:bg-brand-500 active:text-white sm:hover:bg-brand-500 sm:hover:text-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 transition active:scale-95 shadow-xs">$20</button>
+                    <button onclick="setForeignPreset(50)" class="py-2.5 rounded-xl text-xs font-mono font-bold bg-slate-100 active:bg-brand-500 active:text-white sm:hover:bg-brand-500 sm:hover:text-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 transition active:scale-95 shadow-xs">$50</button>
+                    <button onclick="setForeignPreset(100)" class="py-2.5 rounded-xl text-xs font-mono font-bold bg-slate-100 active:bg-brand-500 active:text-white sm:hover:bg-brand-500 sm:hover:text-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 transition active:scale-95 shadow-xs">$100</button>
+                </div>
+
+                <!-- Input 2: Bolívares (VES) -->
+                <div class="space-y-1">
+                    <div class="flex items-center justify-between text-xs font-semibold text-slate-500 dark:text-slate-400 px-1">
+                        <span>Monto en Bolívares (VES)</span>
+                        <div class="flex items-center gap-1.5">
+                            <button onclick="copyValue('ves_clean')" class="hover:text-brand-500 active:scale-95 flex items-center gap-1 py-1 px-2.5 rounded-lg bg-brand-500/10 text-brand-600 dark:text-brand-400 text-[11px] font-bold transition" title="Copiar solo números para pegar en el banco">
+                                <i class="fa-solid fa-building-columns"></i> Banco
+                            </button>
+                            <button onclick="copyValue('ves_formatted')" class="hover:text-brand-500 active:scale-95 flex items-center gap-1 py-1 px-2 rounded-lg bg-slate-100 dark:bg-slate-800/80 text-[11px] transition">
+                                <i class="fa-regular fa-copy"></i> Bs.
+                            </button>
+                        </div>
+                    </div>
+                    <div class="relative flex items-center bg-slate-50 dark:bg-slate-900/80 rounded-2xl border-2 border-slate-200 dark:border-slate-800 focus-within:border-brand-500 dark:focus-within:border-brand-500 transition-all px-3.5 sm:px-4 py-3 sm:py-3.5">
+                        <span class="font-mono text-xl sm:text-2xl font-bold text-amber-500 mr-2.5 select-none">Bs.</span>
+                        <input
+                            type="text"
+                            inputmode="decimal"
+                            enterkeyhint="done"
+                            autocomplete="off"
+                            autocorrect="off"
+                            id="vesInput"
+                            value="0"
+                            placeholder="0,00"
+                            oninput="onVesInput(this.value)"
+                            onfocus="this.select()"
+                            class="w-full bg-transparent font-mono text-2xl sm:text-3xl font-bold text-slate-900 dark:text-white focus:outline-none"
+                        >
+                    </div>
+                    <!-- IGTF Breakdown Subtitle -->
+                    <div id="igtfDetailBox" class="hidden text-[11px] sm:text-xs bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 rounded-xl px-3 py-2 flex items-center justify-between">
+                        <span>Base: <strong id="igtfBaseLabel" class="font-mono">Bs. 0,00</strong> + IGTF: <strong id="igtfTaxLabel" class="font-mono">Bs. 0,00</strong></span>
+                        <span class="font-semibold">3% incl.</span>
+                    </div>
+                </div>
+
+                <!-- Mobile Mini Cross-Preview Strip -->
+                <div onclick="setMobileView('comp')" class="lg:hidden cursor-pointer bg-slate-50 dark:bg-slate-900/70 rounded-2xl p-3 border border-slate-200/70 dark:border-slate-800 flex items-center justify-between gap-2 active:scale-[0.99] transition shadow-xs">
+                    <div id="mobileMiniEquivRow" class="flex items-center gap-2 overflow-x-auto no-scrollbar text-[11px] font-mono">
+                        <!-- Populated dynamically by JS -->
+                    </div>
+                    <span class="text-[10px] font-bold text-brand-500 shrink-0 flex items-center gap-1">
+                        Ver 5 <i class="fa-solid fa-chevron-right text-[9px]"></i>
+                    </span>
+                </div>
+
+                <!-- Desktop Fast Copy & Share Bar -->
+                <div class="hidden sm:grid pt-1 grid-cols-2 gap-2.5">
+                    <button onclick="copyValue('ves_clean')"
+                        class="w-full py-3 px-4 rounded-2xl font-semibold text-sm bg-brand-500 hover:bg-brand-600 text-white shadow-lg shadow-brand-500/20 flex items-center justify-center gap-2 transition active:scale-95">
+                        <i class="fa-regular fa-copy"></i>
+                        <span>Copiar Monto en Bs.</span>
+                    </button>
+
+                    <button onclick="copySummaryForPagoMovil()"
+                        class="w-full py-3 px-4 rounded-2xl font-semibold text-sm bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-100 flex items-center justify-center gap-2 transition active:scale-95">
+                        <i class="fa-brands fa-whatsapp text-brand-500 text-base"></i>
+                        <span>Copiar Resumen / Pago Móvil</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Right Column: Simultaneous Multi-Rate Comparison Table (5 cols on desktop) -->
+            <div id="compColumnWrapper" class="hidden lg:block lg:col-span-5 bg-white dark:bg-darkcard rounded-3xl p-4 sm:p-6 shadow-sm border border-slate-200/80 dark:border-slate-800/90 space-y-3.5 sm:space-y-4">
+                <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-2.5 sm:pb-3">
+                    <div>
+                        <h3 class="font-bold text-slate-900 dark:text-white text-sm flex items-center gap-2">
+                            <i class="fa-solid fa-layer-group text-brand-500"></i>
+                            Comparativa en Todas las Tasas
+                        </h3>
+                        <p id="comparisonSubtitle" class="text-[11px] sm:text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                            Equivalencia cruzada en cada divisa
+                        </p>
+                    </div>
+                    <span class="text-[10px] sm:text-[11px] font-mono font-semibold px-2 py-1 rounded-lg bg-brand-500/10 text-brand-600 dark:text-brand-400 border border-brand-500/20 shrink-0">
+                        5 Divisas
+                    </span>
+                </div>
+
+                <!-- Simultaneous Breakdown List -->
+                <div id="comparisonList" class="space-y-2">
+                    <!-- Populated dynamically by JS -->
+                </div>
+
+                <!-- Quick Arbitrage / Reference Note -->
+                <div class="bg-slate-50 dark:bg-slate-900/60 rounded-2xl p-3 border border-slate-200/60 dark:border-slate-800/80 space-y-1.5">
+                    <div class="flex items-center justify-between text-xs">
+                        <span id="baseEquivLabel" class="text-slate-500 dark:text-slate-400 font-medium">Monto base en Bolívares:</span>
+                        <strong id="usdtEquivalentBox" class="font-mono text-slate-800 dark:text-slate-100">Bs. 0,00</strong>
+                    </div>
+                    <div class="flex items-center justify-between text-xs">
+                        <span class="text-slate-500 dark:text-slate-400 font-medium">Diferencia BCV vs Binance:</span>
+                        <strong id="diffVesBox" class="font-mono text-amber-500">Bs. 0,00</strong>
+                    </div>
+                </div>
+
+                <!-- Quick Pago Móvil Profile Card -->
+                <div class="bg-gradient-to-br from-slate-900 to-slate-800 dark:from-slate-800/90 dark:to-slate-900 rounded-2xl p-3.5 sm:p-4 text-white space-y-2.5 shadow-md">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-2">
+                            <i class="fa-solid fa-bolt text-brand-400 text-sm"></i>
+                            <span class="text-xs font-bold uppercase tracking-wider text-slate-200">Pago Móvil Rápido</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <span id="pmConfiguredBadge" class="text-[10px] px-2 py-0.5 rounded-full bg-slate-800 text-slate-400 font-medium">Sin configurar</span>
+                            <button onclick="openPagoMovilModal()" class="text-xs text-slate-300 hover:text-white underline">Editar</button>
+                        </div>
+                    </div>
+                    <p id="pmPreviewText" class="text-xs text-slate-300 font-mono truncate">
+                        Guarda tu Banco, Cédula y Teléfono para enviarlos junto al monto calculado en 1 clic.
+                    </p>
+                    <button onclick="copyPagoMovilWithAmount()"
+                        class="w-full py-2.5 px-3 rounded-xl bg-white/10 hover:bg-white/20 text-xs font-semibold text-white flex items-center justify-center gap-1.5 transition active:scale-95">
+                        <i class="fa-regular fa-paper-plane"></i>
+                        <span>Copiar mis datos + monto en Bs.</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- THUMB-FRIENDLY STICKY BOTTOM ACTION BAR (Mobile Only) -->
+    <div class="sm:hidden fixed bottom-0 inset-x-0 z-40 bg-white/95 dark:bg-darkcard/95 glass-header border-t border-slate-200/90 dark:border-slate-800/90 px-3 pt-2.5 safe-bottom-bar shadow-2xl">
+        <div class="flex items-center gap-2 max-w-md mx-auto">
+            <!-- Primary Action: Copy clean Bs amount for Bank App -->
+            <button onclick="copyValue('ves_clean')"
+                class="flex-1 py-3 px-3.5 rounded-2xl bg-brand-500 active:bg-brand-600 text-white font-bold text-xs shadow-md shadow-brand-500/25 flex items-center justify-between gap-2 transition active:scale-95">
+                <span class="flex items-center gap-1.5">
+                    <i class="fa-solid fa-building-columns text-sm"></i>
+                    <span>Copiar Bs.</span>
+                </span>
+                <span id="mobileBottomVesAmount" class="font-mono text-sm bg-black/15 px-2 py-0.5 rounded-lg">0,00</span>
+            </button>
+
+            <!-- Secondary Action: Copy Pago Móvil + Amount -->
+            <button onclick="copyPagoMovilWithAmount()" title="Copiar Datos de Pago Móvil + Monto"
+                class="py-3 px-3 rounded-2xl bg-slate-900 dark:bg-slate-800 text-white font-semibold text-xs flex items-center gap-1.5 transition active:scale-95 shrink-0 shadow-xs">
+                <i class="fa-solid fa-bolt text-brand-400"></i>
+                <span>Pago Móvil</span>
+            </button>
+
+            <!-- Share Summary for WhatsApp -->
+            <button onclick="copySummaryForPagoMovil()" title="Copiar Resumen para WhatsApp"
+                class="w-11 h-11 rounded-2xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 flex items-center justify-center transition active:scale-95 shrink-0 shadow-xs">
+                <i class="fa-brands fa-whatsapp text-brand-500 text-lg"></i>
+            </button>
+        </div>
+    </div>
+
+    <!-- MODAL 1: EDIT ALL RATES & AUTO-UPDATE RULES -->
+    <div id="editRatesModal" class="fixed inset-0 z-50 hidden items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-950/60 backdrop-blur-sm">
+        <div class="bg-white dark:bg-darkcard w-full max-w-lg rounded-t-3xl sm:rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+            <div class="px-5 sm:px-6 py-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
+                <div>
+                    <h3 class="font-bold text-sm sm:text-base text-slate-900 dark:text-white flex items-center gap-2">
+                        <i class="fa-solid fa-sliders text-brand-500"></i>
+                        Configurar Auto-Actualización y Tasas
+                    </h3>
+                    <p class="text-[11px] sm:text-xs text-slate-500 dark:text-slate-400">Elige cálculo automático o fija una tasa con candado</p>
+                </div>
+                <button onclick="closeEditRatesModal()" class="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 hover:text-slate-800 dark:hover:text-white flex items-center justify-center">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+
+            <form id="editRatesForm" onsubmit="saveManualRates(event)" class="p-4 sm:p-6 space-y-3.5 max-h-[80vh] overflow-y-auto">
+                <div class="text-xs text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-900/70 p-3 rounded-2xl border border-slate-200/60 dark:border-slate-800">
+                    <p>💡 <strong class="text-slate-700 dark:text-slate-200">Modo Auto:</strong> Calcula la tasa aplicando un diferencial porcentual respecto al mercado global. <strong class="text-slate-700 dark:text-slate-200">Modo Manual:</strong> Fija un precio exacto que no se sobrescribirá al sincronizar.</p>
+                </div>
+                
+                <div id="editRateRowsContainer" class="space-y-3">
+                    <!-- Populated dynamically -->
+                </div>
+
+                <div class="pt-2 flex items-center gap-3">
+                    <button type="button" onclick="closeEditRatesModal()" class="w-1/2 py-3 rounded-2xl font-semibold text-xs bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 transition active:scale-95">
+                        Cancelar
+                    </button>
+                    <button type="submit" class="w-1/2 py-3 rounded-2xl font-semibold text-xs bg-brand-500 hover:bg-brand-600 text-white shadow-lg shadow-brand-500/20 transition active:scale-95">
+                        Guardar Cambios
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL 2: QUICK SINGLE RATE EDIT -->
+    <div id="quickSingleModal" class="fixed inset-0 z-50 hidden items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-950/60 backdrop-blur-sm">
+        <div class="bg-white dark:bg-darkcard w-full max-w-sm rounded-t-3xl sm:rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden p-5 sm:p-6 space-y-4">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                    <span id="quickModalIcon" class="w-8 h-8 rounded-xl bg-brand-500 text-white flex items-center justify-center text-xs">
+                        <i class="fa-solid fa-dollar-sign"></i>
+                    </span>
+                    <div>
+                        <h4 id="quickModalTitle" class="font-bold text-sm text-slate-900 dark:text-white">Editar Tasa</h4>
+                        <p class="text-[11px] text-slate-500">Ajuste rápido</p>
+                    </div>
+                </div>
+                <button onclick="closeQuickSingleRateEdit()" class="w-7 h-7 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 flex items-center justify-center">
+                    <i class="fa-solid fa-xmark text-xs"></i>
+                </button>
+            </div>
+
+            <div class="space-y-3">
+                <div class="space-y-1">
+                    <label class="text-xs font-semibold text-slate-500">Nueva Tasa en Bolívares (Bs.)</label>
+                    <div class="relative flex items-center bg-slate-50 dark:bg-slate-900 rounded-2xl border-2 border-slate-200 dark:border-slate-800 focus-within:border-brand-500 px-3.5 py-2.5">
+                        <span class="font-mono text-lg font-bold text-brand-500 mr-2">Bs.</span>
+                        <input
+                            type="text"
+                            inputmode="decimal"
+                            id="quickSingleInput"
+                            placeholder="0,00"
+                            class="w-full bg-transparent font-mono text-xl font-bold text-slate-900 dark:text-white focus:outline-none"
+                        >
+                    </div>
+                </div>
+
+                <div class="flex items-center gap-2 pt-1">
+                    <button type="button" onclick="closeQuickSingleRateEdit()" class="flex-1 py-2.5 rounded-xl font-semibold text-xs bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
+                        Cancelar
+                    </button>
+                    <button type="button" onclick="saveQuickSingleRate()" class="flex-1 py-2.5 rounded-xl font-semibold text-xs bg-brand-500 hover:bg-brand-600 text-white shadow-md shadow-brand-500/20">
+                        Aplicar y Fijar
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL 3: PAGO MÓVIL CONFIGURATION -->
+    <div id="pagoMovilModal" class="fixed inset-0 z-50 hidden items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-950/60 backdrop-blur-sm">
+        <div class="bg-white dark:bg-darkcard w-full max-w-md rounded-t-3xl sm:rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden">
+            <div class="px-5 sm:px-6 py-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
+                <div>
+                    <h3 class="font-bold text-sm sm:text-base text-slate-900 dark:text-white flex items-center gap-2">
+                        <i class="fa-solid fa-mobile-screen-button text-brand-500"></i>
+                        Mis Datos de Pago Móvil
+                    </h3>
+                    <p class="text-[11px] sm:text-xs text-slate-500 dark:text-slate-400">Para copiar tus datos junto al monto en 1 clic</p>
+                </div>
+                <button onclick="closePagoMovilModal()" class="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 hover:text-slate-800 dark:hover:text-white flex items-center justify-center">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+
+            <form id="pagoMovilForm" onsubmit="savePagoMovilData(event)" class="p-4 sm:p-6 space-y-3.5 max-h-[80vh] overflow-y-auto">
+                <div class="space-y-1">
+                    <label class="text-xs font-semibold text-slate-600 dark:text-slate-300">Banco</label>
+                    <select id="pmBank" class="w-full bg-slate-50 dark:bg-slate-900 rounded-2xl border-2 border-slate-200 dark:border-slate-800 px-3.5 py-2.5 text-sm font-medium focus:outline-none focus:border-brand-500">
+                        <option value="Banesco (0134)">Banesco (0134)</option>
+                        <option value="Banco de Venezuela (0102)">Banco de Venezuela (0102)</option>
+                        <option value="BBVA Provincial (0108)">BBVA Provincial (0108)</option>
+                        <option value="Mercantil (0105)">Mercantil (0105)</option>
+                        <option value="BOD / BNC (0191)">BNC / BOD (0191)</option>
+                        <option value="Banco Nacional de Crédito (0191)">Banco Nacional de Crédito (0191)</option>
+                        <option value="Bicentenario (0175)">Bicentenario (0175)</option>
+                        <option value="Banco Activo (0171)">Banco Activo (0171)</option>
+                        <option value="100% Banco (0156)">100% Banco (0156)</option>
+                        <option value="Banplus (0174)">Banplus (0174)</option>
+                        <option value="Banco Caroní (0128)">Banco Caroní (0128)</option>
+                        <option value="Tesoro (0163)">Tesoro (0163)</option>
+                    </select>
+                </div>
+
+                <div class="grid grid-cols-3 gap-2">
+                    <div class="space-y-1">
+                        <label class="text-xs font-semibold text-slate-600 dark:text-slate-300">Tipo</label>
+                        <select id="pmIdType" class="w-full bg-slate-50 dark:bg-slate-900 rounded-2xl border-2 border-slate-200 dark:border-slate-800 px-3 py-2.5 text-sm font-medium focus:outline-none focus:border-brand-500">
+                            <option value="V">V</option>
+                            <option value="J">J</option>
+                            <option value="E">E</option>
+                            <option value="P">P</option>
+                        </select>
+                    </div>
+                    <div class="col-span-2 space-y-1">
+                        <label class="text-xs font-semibold text-slate-600 dark:text-slate-300">Cédula / RIF</label>
+                        <input type="text" id="pmIdNumber" inputmode="numeric" placeholder="12345678" required
+                            class="w-full bg-slate-50 dark:bg-slate-900 rounded-2xl border-2 border-slate-200 dark:border-slate-800 px-3.5 py-2.5 text-sm font-mono font-medium focus:outline-none focus:border-brand-500">
+                    </div>
+                </div>
+
+                <div class="space-y-1">
+                    <label class="text-xs font-semibold text-slate-600 dark:text-slate-300">Teléfono (11 dígitos)</label>
+                    <input type="tel" id="pmPhone" inputmode="numeric" placeholder="04121234567" required
+                        class="w-full bg-slate-50 dark:bg-slate-900 rounded-2xl border-2 border-slate-200 dark:border-slate-800 px-3.5 py-2.5 text-sm font-mono font-medium focus:outline-none focus:border-brand-500">
+                </div>
+
+                <div class="pt-2 flex items-center gap-3">
+                    <button type="button" onclick="closePagoMovilModal()" class="w-1/2 py-3 rounded-2xl font-semibold text-xs bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
+                        Cancelar
+                    </button>
+                    <button type="submit" class="w-1/2 py-3 rounded-2xl font-semibold text-xs bg-brand-500 hover:bg-brand-600 text-white shadow-lg shadow-brand-500/20">
+                        Guardar Datos
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- JavaScript Application Logic -->
+    <script>
+        /**************************************************************
+         * CONSTANTS & RATE DEFINITIONS
+         **************************************************************/
+        const RATE_DEFINITIONS = [
+            {
+                id: 'bcv_usd',
+                name: 'Dólar BCV',
+                shortName: 'BCV $',
+                symbol: '$',
+                unit: 'USD',
+                defaultRate: 45.50,
+                icon: 'fa-solid fa-landmark',
+                colorClass: 'bg-emerald-500',
+                defaultMode: 'auto_market',
+                defaultSpread: 0.0
+            },
+            {
+                id: 'bcv_eur',
+                name: 'Euro BCV',
+                shortName: 'BCV €',
+                symbol: '€',
+                unit: 'EUR',
+                defaultRate: 49.37,
+                icon: 'fa-solid fa-euro-sign',
+                colorClass: 'bg-blue-500',
+                defaultMode: 'auto_market',
+                defaultSpread: 0.0
+            },
+            {
+                id: 'binance_usdt',
+                name: 'Binance USDT',
+                shortName: 'Binance',
+                symbol: '₮',
+                unit: 'USDT',
+                defaultRate: 54.20,
+                icon: 'fa-solid fa-coins',
+                colorClass: 'bg-amber-500',
+                defaultMode: 'auto_market',
+                defaultSpread: 0.0
+            },
+            {
+                id: 'efectivo',
+                name: 'Dólar Efectivo',
+                shortName: 'Efectivo',
+                symbol: '$',
+                unit: 'USD',
+                defaultRate: 53.40,
+                icon: 'fa-solid fa-money-bill-wave',
+                colorClass: 'bg-emerald-600',
+                defaultMode: 'auto_market',
+                defaultSpread: -1.5
+            },
+            {
+                id: 'zelle',
+                name: 'Dólar Zelle',
+                shortName: 'Zelle',
+                symbol: '$',
+                unit: 'USD',
+                defaultRate: 53.90,
+                icon: 'fa-solid fa-building-columns',
+                colorClass: 'bg-indigo-600',
+                defaultMode: 'auto_market',
+                defaultSpread: -0.5
+            }
+        ];
+
+        let appState = {
+            activeRateId: 'bcv_usd',
+            mobileView: 'calc', // 'calc' | 'comp' | 'both'
+            lastEditedDirection: 'foreign', // 'foreign' or 'ves'
+            foreignAmount: 1,
+            vesAmount: 45.50,
+            includeIgtf: false,
+            lastUpdated: null,
+            rawApi: {
+                bcvUsd: 45.50,
+                paraleloUsd: 54.20,
+                eurUsdRatio: 1.085
+            },
+            rates: {},
+            rateConfig: {}
+        };
+
+        /**
+         * Switches between Calculator, 5-Rate Comparison, or Combined view on mobile screens
+         */
+        function setMobileView(view) {
+            appState.mobileView = view;
+            const calcCol = document.getElementById('calcColumnWrapper');
+            const compCol = document.getElementById('compColumnWrapper');
+            const btnCalc = document.getElementById('tabBtnCalc');
+            const btnComp = document.getElementById('tabBtnComp');
+            const btnBoth = document.getElementById('tabBtnBoth');
+
+            if (view === 'calc') {
+                calcCol.classList.remove('hidden');
+                compCol.classList.add('hidden');
+            } else if (view === 'comp') {
+                calcCol.classList.add('hidden');
+                compCol.classList.remove('hidden');
+            } else {
+                calcCol.classList.remove('hidden');
+                compCol.classList.remove('hidden');
+            }
+
+            [btnCalc, btnComp, btnBoth].forEach(btn => {
+                if (!btn) return;
+                btn.classList.remove('bg-white', 'dark:bg-darkcard', 'text-slate-900', 'dark:text-white', 'shadow-sm');
+                btn.classList.add('text-slate-500', 'dark:text-slate-400');
+            });
+
+            const activeBtn = view === 'calc' ? btnCalc : (view === 'comp' ? btnComp : btnBoth);
+            if (activeBtn) {
+                activeBtn.classList.remove('text-slate-500', 'dark:text-slate-400');
+                activeBtn.classList.add('bg-white', 'dark:bg-darkcard', 'text-slate-900', 'dark:text-white', 'shadow-sm');
+            }
+        }
+
+        /**************************************************************
+         * INITIALIZATION & PERSISTENCE
+         **************************************************************/
+        window.addEventListener('DOMContentLoaded', () => {
+            initTheme();
+            loadStateFromStorage();
+            syncOnlineRates(true, false);
+            setInterval(() => {
+                syncOnlineRates(true, true);
+            }, 10 * 60 * 1000);
+        });
+
+        function initTheme() {
+            const isDark = localStorage.getItem('al_cambio_theme') === 'dark' ||
+                (!localStorage.getItem('al_cambio_theme') && window.matchMedia('(prefers-color-scheme: dark)').matches);
+            if (isDark) {
+                document.documentElement.classList.add('dark');
+                updateThemeIcon(true);
+            } else {
+                document.documentElement.classList.remove('dark');
+                updateThemeIcon(false);
+            }
+        }
+
+        function toggleTheme() {
+            const isDark = document.documentElement.classList.toggle('dark');
+            localStorage.setItem('al_cambio_theme', isDark ? 'dark' : 'light');
+            updateThemeIcon(isDark);
+        }
+
+        function updateThemeIcon(isDark) {
+            const icon = document.getElementById('themeIcon');
+            if (!icon) return;
+            icon.className = isDark ? 'fa-solid fa-moon text-sm' : 'fa-solid fa-sun text-sm';
+        }
+
+        function loadStateFromStorage() {
+            const savedRates = localStorage.getItem('al_cambio_rates');
+            const savedConfig = localStorage.getItem('al_cambio_rate_config');
+            const savedActive = localStorage.getItem('al_cambio_active');
+
+            if (savedActive && RATE_DEFINITIONS.some(d => d.id === savedActive)) {
+                appState.activeRateId = savedActive;
+            }
+
+            RATE_DEFINITIONS.forEach(def => {
+                appState.rateConfig[def.id] = {
+                    mode: def.defaultMode,
+                    spread: def.defaultSpread
+                };
+                appState.rates[def.id] = def.defaultRate;
+            });
+
+            if (savedConfig) {
+                try {
+                    const parsed = JSON.parse(savedConfig);
+                    Object.keys(parsed).forEach(k => {
+                        if (appState.rateConfig[k]) appState.rateConfig[k] = parsed[k];
+                    });
+                } catch(e) {}
+            }
+
+            if (savedRates) {
+                try {
+                    const parsed = JSON.parse(savedRates);
+                    Object.keys(parsed).forEach(k => {
+                        if (typeof parsed[k] === 'number') appState.rates[k] = parsed[k];
+                    });
+                } catch(e) {}
+            }
+
+            const savedPm = localStorage.getItem('al_cambio_pm');
+            if (savedPm) {
+                try {
+                    const pm = JSON.parse(savedPm);
+                    if (pm.bank) document.getElementById('pmBank').value = pm.bank;
+                    if (pm.idType) document.getElementById('pmIdType').value = pm.idType;
+                    if (pm.idNumber) document.getElementById('pmIdNumber').value = pm.idNumber;
+                    if (pm.phone) document.getElementById('pmPhone').value = pm.phone;
+                } catch(e) {}
+            }
+
+            updatePagoMovilPreviewBadge();
+            recalculateAll();
+        }
+
+        function saveStateToStorage() {
+            localStorage.setItem('al_cambio_rates', JSON.stringify(appState.rates));
+            localStorage.setItem('al_cambio_rate_config', JSON.stringify(appState.rateConfig));
+            localStorage.setItem('al_cambio_active', appState.activeRateId);
+        }
+
+        /**************************************************************
+         * LIVE API SYNC & AUTOMATIC RATE CALCULATION ENGINE
+         ********************************------------------------------*/
+        async function syncOnlineRates(isBackground = false, animate = true) {
+            const statusDot = document.getElementById('statusDot');
+            const lastUpdatedLabel = document.getElementById('lastUpdatedLabel');
+            const syncIcon = document.getElementById('syncIcon');
+
+            if (!isBackground && syncIcon) {
+                syncIcon.classList.add('fa-spin');
+            }
+
+            try {
+                // Fetch BCV and Binance reference indicators in parallel
+                const [bcvRes, p2pRes] = await Promise.allSettled([
+                    fetch('https://pydolarvenezuela-api.vercel.app/api/v1/dollar?monitor=bcv').then(r => r.json()),
+                    fetch('https://pydolarvenezuela-api.vercel.app/api/v1/dollar?monitor=binance').then(r => r.json())
+                ]);
+
+                let fetchedBcv = null;
+                let fetchedBinance = null;
+                let fetchedEurBcv = null;
+
+                if (bcvRes.status === 'fulfilled' && bcvRes.value) {
+                    const data = bcvRes.value;
+                    if (data.price) fetchedBcv = Number(data.price);
+                    if (data.eur) fetchedEurBcv = Number(data.eur);
+                }
+
+                if (p2pRes.status === 'fulfilled' && p2pRes.value) {
+                    const data = p2pRes.value;
+                    if (data.price) fetchedBinance = Number(data.price);
+                }
+
+                // Fallback web scraping or public proxy if API is unresponsive
+                if (!fetchedBcv || !fetchedBinance) {
+                    const fallbackRes = await fetch('https://ve.dolarapi.com/v1/dolares').then(r => r.json());
+                    if (Array.isArray(fallbackRes)) {
+                        const bcvObj = fallbackRes.find(d => d.fuente === 'oficial' || d.fuente === 'bcv');
+                        const p2pObj = fallbackRes.find(d => d.fuente === 'binance' || d.fuente === 'paralelo');
+                        const eurObj = fallbackRes.find(d => d.fuente === 'oficial_eur' || d.fuente === 'eur');
+                        if (bcvObj && bcvObj.promedio) fetchedBcv = Number(bcvObj.promedio);
+                        if (p2pObj && p2pObj.promedio) fetchedBinance = Number(p2pObj.promedio);
+                        if (eurObj && eurObj.promedio) fetchedEurBcv = Number(eurObj.promedio);
+                    }
+                }
+
+                if (fetchedBcv) appState.rawApi.bcvUsd = fetchedBcv;
+                if (fetchedBinance) appState.rawApi.paraleloUsd = fetchedBinance;
+                if (fetchedEurBcv) {
+                    appState.rawApi.eurUsdRatio = fetchedEurBcv / (fetchedBcv || 45);
+                } else if (fetchedBcv) {
+                    appState.rawApi.eurUsdRatio = 1.085;
+                }
+
+                // Recalculate automatic rates according to user configuration rules
+                applyAutoRateRules();
+
+                appState.lastUpdated = new Date();
+                saveStateToStorage();
+                renderRatesGrid(animate);
+                recalculateAll();
+
+                if (statusDot) {
+                    statusDot.className = "w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block shrink-0";
+                }
+                if (lastUpdatedLabel) {
+                    const timeStr = appState.lastUpdated.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                    lastUpdatedLabel.innerHTML = `<span id="statusDot" class="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block shrink-0"></span> Actualizado ${timeStr}`;
+                }
+
+                if (!isBackground) {
+                    showToast('Tasas actualizadas con éxito', 'success');
+                }
+            } catch (error) {
+                console.warn('Error sincronizando tasas en línea, utilizando respaldo local:', error);
+                applyAutoRateRules();
+                renderRatesGrid(false);
+                recalculateAll();
+
+                if (statusDot) {
+                    statusDot.className = "w-1.5 h-1.5 rounded-full bg-amber-500 inline-block shrink-0";
+                }
+                if (lastUpdatedLabel) {
+                    lastUpdatedLabel.innerHTML = `<span id="statusDot" class="w-1.5 h-1.5 rounded-full bg-amber-500 inline-block shrink-0"></span> Modo local / offline`;
+                }
+                if (!isBackground) {
+                    showToast('Usando tasas guardadas (sin conexión)', 'info');
+                }
+            } finally {
+                if (!isBackground && syncIcon) {
+                    syncIcon.classList.remove('fa-spin');
+                }
+            }
+        }
+
+        function applyAutoRateRules() {
+            const bcv = appState.rawApi.bcvUsd || 45.50;
+            const p2p = appState.rawApi.paraleloUsd || 54.20;
+            const eurRatio = appState.rawApi.eurUsdRatio || 1.085;
+
+            RATE_DEFINITIONS.forEach(def => {
+                const config = appState.rateConfig[def.id] || { mode: def.defaultMode, spread: def.defaultSpread };
+                
+                if (config.mode === 'manual') {
+                    // Do not overwrite manual locked rate
+                    return;
+                }
+
+                let baseValue = bcv;
+                if (def.id === 'bcv_eur') {
+                    baseValue = bcv * eurRatio;
+                } else if (def.id === 'binance_usdt') {
+                    baseValue = p2p;
+                } else if (def.id === 'efectivo' || def.id === 'zelle') {
+                    baseValue = p2p; // reference from parallel/binance
+                }
+
+                if (config.mode === 'auto_midpoint') {
+                    baseValue = (bcv + p2p) / 2;
+                }
+
+                const spreadMultiplier = 1 + ((config.spread || 0) / 100);
+                appState.rates[def.id] = Number((baseValue * spreadMultiplier).toFixed(2));
+            });
+        }
+
+        /********************************------------------------------
+         * RENDERING RATES GRID & UI
+         ********************************------------------------------*/
+        function renderRatesGrid(animateFlash = false) {
+            const container = document.getElementById('ratesGrid');
+            if (!container) return;
+
+            const bcv = appState.rates['bcv_usd'] || 45.50;
+            const binance = appState.rates['binance_usdt'] || 54.20;
+            const midpoint = (bcv + binance) / 2;
+            const brecha = bcv > 0 ? ((binance - bcv) / bcv) * 100 : 0;
+
+            const brechaEl = document.getElementById('brechaPercent');
+            if (brechaEl) {
+                brechaEl.textContent = `${brecha.toFixed(1)}%`;
+            }
+
+            const midpointEl = document.getElementById('midpointLabel');
+            if (midpointEl) {
+                midpointEl.textContent = `Bs. ${formatVeNumber(midpoint)}`;
+            }
+
+            container.innerHTML = RATE_DEFINITIONS.map((def) => {
+                const isActive = def.id === appState.activeRateId;
+                const val = appState.rates[def.id] || def.defaultRate;
+                const modeInfo = getModeBadgeInfo(def.id);
+                const flashClass = animateFlash && modeInfo.isAuto ? 'rate-flash' : '';
+                
+                return `
+                    <div
+                        onclick="selectRate('${def.id}')"
+                        role="button"
+                        tabindex="0"
+                        class="group cursor-pointer relative text-left rounded-lg sm:rounded-xl px-1.5 py-1 sm:px-2.5 sm:py-1.5 transition-all duration-150 border min-w-0 ${flashClass} ${
+                            isActive
+                                ? 'bg-white dark:bg-slate-800 border-brand-500 card-active-ring'
+                                : 'bg-white/85 dark:bg-darkcard/90 border-slate-200/80 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700'
+                        }"
+                    >
+                        <div class="flex items-center justify-between gap-0.5">
+                            <div class="flex items-center gap-1 min-w-0">
+                                <span class="w-3.5 h-3.5 sm:w-4 sm:h-4 rounded ${def.colorClass} text-white flex items-center justify-center text-[8px] sm:text-[9px] shrink-0">
+                                    <i class="${def.icon}"></i>
+                                </span>
+                                <span class="text-[9px] sm:text-[11px] font-bold text-slate-600 dark:text-slate-300 truncate leading-none">
+                                    <span class="sm:hidden">${def.shortName}</span>
+                                    <span class="hidden sm:inline">${def.name}</span>
+                                </span>
+                            </div>
+
+                            <!-- Compact Auto / Manual Lock Button -->
+                            <button
+                                type="button"
+                                onclick="toggleCardLockMode(event, '${def.id}')"
+                                title="Alternar entre Automático y Manual fijo"
+                                class="flex items-center justify-center px-1 py-0.5 rounded border text-[7px] font-bold uppercase transition active:scale-95 shrink-0 ${modeInfo.badgeClass}"
+                            >
+                                <i class="${modeInfo.icon} text-[7px]"></i>
+                                <span class="hidden md:inline ml-0.5">${modeInfo.subLabel}</span>
+                            </button>
+                        </div>
+
+                        <div class="mt-0.5 flex items-baseline justify-center sm:justify-start gap-0.5 min-w-0">
+                            <span class="hidden sm:inline text-[9px] font-mono text-slate-400">Bs.</span>
+                            <span class="font-mono font-extrabold text-[11px] sm:text-sm text-slate-900 dark:text-white tracking-tight truncate leading-tight">
+                                ${formatVeNumber(val)}
+                            </span>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function getModeBadgeInfo(rateId) {
+            const cfg = appState.rateConfig[rateId] || { mode: 'auto_market', spread: 0 };
+            if (cfg.mode === 'manual') {
+                return {
+                    isAuto: false,
+                    icon: 'fa-solid fa-lock',
+                    subLabel: 'FIJO',
+                    badgeClass: 'bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/30'
+                };
+            }
+            if (cfg.mode === 'auto_midpoint') {
+                return {
+                    isAuto: true,
+                    icon: 'fa-solid fa-scale-balanced',
+                    subLabel: 'PROM',
+                    badgeClass: 'bg-blue-500/15 text-blue-600 dark:text-blue-400 border-blue-500/30'
+                };
+            }
+            const spreadTxt = cfg.spread ? `${cfg.spread > 0 ? '+' : ''}${cfg.spread}%` : 'AUTO';
+            return {
+                isAuto: true,
+                icon: 'fa-solid fa-bolt',
+                subLabel: spreadTxt,
+                badgeClass: 'bg-brand-500/15 text-brand-600 dark:text-brand-400 border-brand-500/30'
+            };
+        }
+
+        function toggleCardLockMode(event, rateId) {
+            event.stopPropagation();
+            const currentCfg = appState.rateConfig[rateId] || { mode: 'auto_market', spread: 0 };
+            const def = RATE_DEFINITIONS.find(d => d.id === rateId);
+
+            if (currentCfg.mode === 'manual') {
+                appState.rateConfig[rateId] = {
+                    mode: def ? def.defaultMode : 'auto_market',
+                    spread: def ? def.defaultSpread : 0
+                };
+                applyAutoRateRules();
+                showToast(`${def ? def.shortName : 'Tasa'} en modo Automático`, 'success');
+            } else {
+                appState.rateConfig[rateId] = {
+                    mode: 'manual',
+                    spread: currentCfg.spread || 0
+                };
+                showToast(`${def ? def.shortName : 'Tasa'} fijada en modo Manual`, 'info');
+            }
+
+            saveStateToStorage();
+            renderRatesGrid(false);
+            recalculateAll();
+        }
+
+        /**************************************************************
+         * CALCULATOR SELECTION & BIDIRECTIONAL LOGIC
+         **************************************************************/
+        function selectRate(rateId) {
+            if (!RATE_DEFINITIONS.some(d => d.id === rateId)) return;
+            appState.activeRateId = rateId;
+            saveStateToStorage();
+            renderRatesGrid(false);
+            recalculateAll();
+        }
+
+        function onForeignInput(rawValue) {
+            appState.lastEditedDirection = 'foreign';
+            const parsed = parseFlexibleNumber(rawValue);
+            appState.foreignAmount = parsed;
+            recalculateFromForeign();
+        }
+
+        function onVesInput(rawValue) {
+            appState.lastEditedDirection = 'ves';
+            const parsed = parseFlexibleNumber(rawValue);
+            appState.vesAmount = parsed;
+            recalculateFromVes();
+        }
+
+        function handleIgtfChange() {
+            const toggle = document.getElementById('igtfToggle');
+            appState.includeIgtf = toggle ? toggle.checked : false;
+            recalculateAll();
+        }
+
+        function setForeignPreset(amount) {
+            appState.lastEditedDirection = 'foreign';
+            appState.foreignAmount = amount;
+            const foreignInput = document.getElementById('foreignInput');
+            if (foreignInput) foreignInput.value = String(amount);
+            recalculateFromForeign();
+        }
+
+        function clearCalculator() {
+            appState.lastEditedDirection = 'foreign';
+            appState.foreignAmount = 0;
+            appState.vesAmount = 0;
+            const foreignInput = document.getElementById('foreignInput');
+            const vesInput = document.getElementById('vesInput');
+            if (foreignInput) foreignInput.value = '';
+            if (vesInput) vesInput.value = '0,00';
+            recalculateFromForeign();
+            if (foreignInput) foreignInput.focus();
+        }
+
+        function recalculateAll() {
+            renderRatesGrid(false);
+            updateActiveRateHeaderUI();
+            if (appState.lastEditedDirection === 'ves') {
+                recalculateFromVes();
+            } else {
+                recalculateFromForeign();
+            }
+        }
+
+        function updateActiveRateHeaderUI() {
+            const activeDef = RATE_DEFINITIONS.find(d => d.id === appState.activeRateId) || RATE_DEFINITIONS[0];
+            const activeRate = appState.rates[activeDef.id] || activeDef.defaultRate;
+
+            const badgeIcon = document.getElementById('activeRateBadgeIcon');
+            const titleEl = document.getElementById('activeRateTitle');
+            const unitSymbolEl = document.getElementById('activeUnitSymbol');
+            const rateDisplayEl = document.getElementById('activeRateValueDisplay');
+            const foreignLabel = document.getElementById('foreignInputLabel');
+            const foreignPrefix = document.getElementById('foreignCurrencyPrefix');
+
+            if (badgeIcon) {
+                badgeIcon.className = `w-9 h-9 rounded-xl flex items-center justify-center text-white font-bold text-sm shrink-0 shadow-sm ${activeDef.colorClass}`;
+                badgeIcon.textContent = activeDef.symbol;
+            }
+            if (titleEl) titleEl.textContent = activeDef.name;
+            if (unitSymbolEl) unitSymbolEl.textContent = activeDef.unit;
+            if (rateDisplayEl) rateDisplayEl.textContent = formatVeNumber(activeRate);
+            if (foreignLabel) foreignLabel.textContent = `Monto en Divisa (${activeDef.unit})`;
+            if (foreignPrefix) foreignPrefix.textContent = activeDef.symbol;
+        }
+
+        function recalculateFromForeign() {
+            const activeDef = RATE_DEFINITIONS.find(d => d.id === appState.activeRateId) || RATE_DEFINITIONS[0];
+            const activeRate = appState.rates[activeDef.id] || activeDef.defaultRate;
+            const foreignVal = Math.max(0, appState.foreignAmount || 0);
+
+            const baseVes = foreignVal * activeRate;
+            const igtfTax = appState.includeIgtf ? baseVes * 0.03 : 0;
+            const finalVes = baseVes + igtfTax;
+
+            appState.vesAmount = finalVes;
+
+            const vesInput = document.getElementById('vesInput');
+            if (vesInput && document.activeElement !== vesInput) {
+                vesInput.value = formatVeNumber(finalVes);
+            }
+
+            updateIgtfBreakdownUI(baseVes, igtfTax);
+            updateMobileBottomBarUI(finalVes, activeDef, foreignVal);
+            renderComparisonTable(finalVes, activeDef, foreignVal);
+        }
+
+        function recalculateFromVes() {
+            const activeDef = RATE_DEFINITIONS.find(d => d.id === appState.activeRateId) || RATE_DEFINITIONS[0];
+            const activeRate = appState.rates[activeDef.id] || activeDef.defaultRate;
+            const totalVes = Math.max(0, appState.vesAmount || 0);
+
+            const baseVes = appState.includeIgtf ? (totalVes / 1.03) : totalVes;
+            const igtfTax = totalVes - baseVes;
+            const foreignVal = activeRate > 0 ? (baseVes / activeRate) : 0;
+
+            appState.foreignAmount = foreignVal;
+
+            const foreignInput = document.getElementById('foreignInput');
+            if (foreignInput && document.activeElement !== foreignInput) {
+                foreignInput.value = foreignVal > 0 ? Number(foreignVal.toFixed(2)).toString() : '';
+            }
+
+            updateIgtfBreakdownUI(baseVes, igtfTax);
+            updateMobileBottomBarUI(totalVes, activeDef, foreignVal);
+            renderComparisonTable(totalVes, activeDef, foreignVal);
+        }
+
+        function updateIgtfBreakdownUI(baseVes, igtfTax) {
+            const box = document.getElementById('igtfDetailBox');
+            const baseLbl = document.getElementById('igtfBaseLabel');
+            const taxLbl = document.getElementById('igtfTaxLabel');
+            if (!box) return;
+
+            if (appState.includeIgtf) {
+                box.classList.remove('hidden');
+                if (baseLbl) baseLbl.textContent = `Bs. ${formatVeNumber(baseVes)}`;
+                if (taxLbl) taxLbl.textContent = `Bs. ${formatVeNumber(igtfTax)}`;
+            } else {
+                box.classList.add('hidden');
+            }
+        }
+
+        function updateMobileBottomBarUI(finalVes, activeDef, foreignVal) {
+            const bottomVes = document.getElementById('mobileBottomVesAmount');
+            if (bottomVes) {
+                bottomVes.textContent = formatVeNumber(finalVes);
+            }
+            const compBadge = document.getElementById('mobileCompBadge');
+            if (compBadge) {
+                const cleanForeign = foreignVal > 0 ? Number(foreignVal.toFixed(2)) : 0;
+                compBadge.textContent = `${activeDef.symbol}${cleanForeign}`;
+            }
+        }
+
+        /**************************************************************
+         * CROSS-CURRENCY COMPARISON TABLE
+         **************************************************************/
+        function renderComparisonTable(totalVes, activeDef, foreignVal) {
+            const listEl = document.getElementById('comparisonList');
+            const subtitleEl = document.getElementById('comparisonSubtitle');
+            const baseEquivBox = document.getElementById('usdtEquivalentBox');
+            const diffVesBox = document.getElementById('diffVesBox');
+            const mobileMiniRow = document.getElementById('mobileMiniEquivRow');
+
+            const cleanForeignStr = formatVeNumber(foreignVal);
+
+            if (subtitleEl) {
+                subtitleEl.innerHTML = `Si tienes <strong class="text-slate-800 dark:text-slate-100 font-mono">${activeDef.symbol}${cleanForeignStr} ${activeDef.shortName}</strong> (Bs. ${formatVeNumber(totalVes)}), equivale a:`;
+            }
+
+            if (baseEquivBox) {
+                baseEquivBox.textContent = `Bs. ${formatVeNumber(totalVes)}`;
+            }
+
+            const bcvRate = appState.rates['bcv_usd'] || 45.50;
+            const binanceRate = appState.rates['binance_usdt'] || 54.20;
+            const diffVes = Math.abs((foreignVal * binanceRate) - (foreignVal * bcvRate));
+            if (diffVesBox) {
+                diffVesBox.textContent = `Bs. ${formatVeNumber(diffVes)}`;
+            }
+
+            if (mobileMiniRow) {
+                mobileMiniRow.innerHTML = RATE_DEFINITIONS
+                    .filter(d => d.id !== activeDef.id)
+                    .map(def => {
+                        const rate = appState.rates[def.id] || def.defaultRate;
+                        const equivForeign = rate > 0 ? (totalVes / rate) : 0;
+                        return `
+                            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-white dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700/80 text-slate-700 dark:text-slate-200 shrink-0">
+                                <strong class="text-slate-400 font-sans">${def.shortName}:</strong>
+                                <span class="font-bold text-brand-600 dark:text-brand-400">${def.symbol}${formatVeNumber(equivForeign)}</span>
+                            </span>
+                        `;
+                    }).join('');
+            }
+
+            if (!listEl) return;
+
+            listEl.innerHTML = RATE_DEFINITIONS.map(def => {
+                const rate = appState.rates[def.id] || def.defaultRate;
+                const isSelected = def.id === activeDef.id;
+                const equivalentInThisCurrency = rate > 0 ? (totalVes / rate) : 0;
+                const sameAmountInVesAtThisRate = foreignVal * rate * (appState.includeIgtf ? 1.03 : 1);
+
+                return `
+                    <div
+                        onclick="selectRate('${def.id}')"
+                        class="cursor-pointer rounded-2xl p-3 border transition flex items-center justify-between gap-2 ${
+                            isSelected
+                                ? 'bg-brand-500/10 border-brand-500/40 dark:bg-brand-500/15'
+                                : 'bg-slate-50/80 dark:bg-slate-900/50 border-slate-200/60 dark:border-slate-800/80 hover:border-slate-300'
+                        }"
+                    >
+                        <div class="flex items-center gap-2.5 min-w-0">
+                            <span class="w-8 h-8 rounded-xl ${def.colorClass} text-white flex items-center justify-center text-xs shrink-0 shadow-xs">
+                                <i class="${def.icon}"></i>
+                            </span>
+                            <div class="min-w-0">
+                                <div class="flex items-center gap-1.5">
+                                    <span class="font-bold text-xs sm:text-sm text-slate-900 dark:text-white truncate">${def.name}</span>
+                                    ${isSelected ? '<span class="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded bg-brand-500 text-white">Base</span>' : ''}
+                                </div>
+                                <p class="text-[10px] sm:text-[11px] text-slate-500 dark:text-slate-400 font-mono">
+                                    Tasa: Bs. ${formatVeNumber(rate)}
+                                </p>
+                            </div>
+                        </div>
+
+                        <div class="text-right shrink-0">
+                            <div class="font-mono font-extrabold text-sm sm:text-base text-slate-900 dark:text-white">
+                                ${def.symbol} ${formatVeNumber(equivalentInThisCurrency)} <span class="text-[10px] font-semibold text-slate-400">${def.unit}</span>
+                            </div>
+                            <div class="text-[10px] font-mono text-slate-500 dark:text-slate-400">
+                                ${def.symbol}${cleanForeignStr} = Bs. ${formatVeNumber(sameAmountInVesAtThisRate)}
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        /**************************************************************
+         * MODALS: EDIT RATES & AUTO-UPDATE RULES
+         **************************************************************/
+        function openEditRatesModal() {
+            const container = document.getElementById('editRateRowsContainer');
+            const modal = document.getElementById('editRatesModal');
+            if (!container || !modal) return;
+
+            container.innerHTML = RATE_DEFINITIONS.map(def => {
+                const currentVal = appState.rates[def.id] || def.defaultRate;
+                const cfg = appState.rateConfig[def.id] || { mode: def.defaultMode, spread: def.defaultSpread };
+
+                return `
+                    <div class="p-3 rounded-2xl bg-slate-50 dark:bg-slate-900/90 border border-slate-200/80 dark:border-slate-800 space-y-2.5">
+                        <div class="flex items-center justify-between gap-2">
+                            <div class="flex items-center gap-2">
+                                <span class="w-6 h-6 rounded-lg ${def.colorClass} text-white flex items-center justify-center text-xs">
+                                    <i class="${def.icon}"></i>
+                                </span>
+                                <span class="font-bold text-xs sm:text-sm text-slate-800 dark:text-slate-100">${def.name}</span>
+                            </div>
+                            <select
+                                id="mode_${def.id}"
+                                onchange="onModalModeChange('${def.id}')"
+                                class="bg-white dark:bg-slate-800 text-[11px] font-semibold rounded-xl px-2.5 py-1.5 border border-slate-200 dark:border-slate-700 focus:outline-none focus:border-brand-500"
+                            >
+                                <option value="auto_market" ${cfg.mode === 'auto_market' ? 'selected' : ''}>⚡ Auto (Mercado + %)</option>
+                                <option value="auto_midpoint" ${cfg.mode === 'auto_midpoint' ? 'selected' : ''}>⚖️ Auto (Promedio BCV/P2P)</option>
+                                <option value="manual" ${cfg.mode === 'manual' ? 'selected' : ''}>🔒 Manual (Fijo)</option>
+                            </select>
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-2">
+                            <div>
+                                <label class="text-[10px] font-semibold text-slate-500 block mb-1">Tasa actual (Bs.)</label>
+                                <input
+                                    type="text"
+                                    inputmode="decimal"
+                                    id="rateInput_${def.id}"
+                                    value="${currentVal.toFixed(2)}"
+                                    oninput="document.getElementById('mode_${def.id}').value = 'manual'"
+                                    class="w-full bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 px-3 py-1.5 font-mono text-sm font-bold focus:outline-none focus:border-brand-500"
+                                >
+                            </div>
+                            <div>
+                                <label class="text-[10px] font-semibold text-slate-500 block mb-1">Diferencial Auto (%)</label>
+                                <input
+                                    type="number"
+                                    step="0.1"
+                                    id="spreadInput_${def.id}"
+                                    value="${cfg.spread || 0}"
+                                    class="w-full bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 px-3 py-1.5 font-mono text-sm font-bold focus:outline-none focus:border-brand-500"
+                                >
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        }
+
+        function onModalModeChange(rateId) {
+            const modeEl = document.getElementById(`mode_${rateId}`);
+            if (!modeEl) return;
+            if (modeEl.value !== 'manual') {
+                const spreadEl = document.getElementById(`spreadInput_${rateId}`);
+                const spreadVal = spreadEl ? parseFloat(spreadEl.value) || 0 : 0;
+                const bcv = appState.rawApi.bcvUsd || 45.50;
+                const p2p = appState.rawApi.paraleloUsd || 54.20;
+                const eurRatio = appState.rawApi.eurUsdRatio || 1.085;
+
+                let base = bcv;
+                if (rateId === 'bcv_eur') base = bcv * eurRatio;
+                else if (rateId === 'binance_usdt' || rateId === 'efectivo' || rateId === 'zelle') base = p2p;
+
+                if (modeEl.value === 'auto_midpoint') base = (bcv + p2p) / 2;
+
+                const previewRate = base * (1 + spreadVal / 100);
+                const rateInput = document.getElementById(`rateInput_${rateId}`);
+                if (rateInput) rateInput.value = previewRate.toFixed(2);
+            }
+        }
+
+        function closeEditRatesModal() {
+            const modal = document.getElementById('editRatesModal');
+            if (!modal) return;
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        }
+
+        function saveManualRates(event) {
+            event.preventDefault();
+            RATE_DEFINITIONS.forEach(def => {
+                const modeEl = document.getElementById(`mode_${def.id}`);
+                const rateEl = document.getElementById(`rateInput_${def.id}`);
+                const spreadEl = document.getElementById(`spreadInput_${def.id}`);
+
+                const mode = modeEl ? modeEl.value : def.defaultMode;
+                const spread = spreadEl ? (parseFloat(spreadEl.value) || 0) : 0;
+                const manualVal = rateEl ? parseFlexibleNumber(rateEl.value) : def.defaultRate;
+
+                appState.rateConfig[def.id] = { mode, spread };
+                if (mode === 'manual' && manualVal > 0) {
+                    appState.rates[def.id] = Number(manualVal.toFixed(2));
+                }
+            });
+
+            applyAutoRateRules();
+            saveStateToStorage();
+            closeEditRatesModal();
+            recalculateAll();
+            showToast('Configuración de tasas guardada', 'success');
+        }
+
+        /**************************************************************
+         * QUICK SINGLE RATE MODAL
+         **************************************************************/
+        function promptQuickSingleRateEdit() {
+            const activeDef = RATE_DEFINITIONS.find(d => d.id === appState.activeRateId) || RATE_DEFINITIONS[0];
+            const currentVal = appState.rates[activeDef.id] || activeDef.defaultRate;
+
+            const modal = document.getElementById('quickSingleModal');
+            const titleEl = document.getElementById('quickModalTitle');
+            const iconEl = document.getElementById('quickModalIcon');
+            const inputEl = document.getElementById('quickSingleInput');
+
+            if (titleEl) titleEl.textContent = `Editar ${activeDef.name}`;
+            if (iconEl) {
+                iconEl.className = `w-8 h-8 rounded-xl ${activeDef.colorClass} text-white flex items-center justify-center text-xs`;
+                iconEl.innerHTML = `<i class="${activeDef.icon}"></i>`;
+            }
+            if (inputEl) {
+                inputEl.value = currentVal.toFixed(2);
+            }
+            if (modal) {
+                modal.classList.remove('hidden');
+                modal.classList.add('flex');
+                setTimeout(() => inputEl && inputEl.select(), 50);
+            }
+        }
+
+        function closeQuickSingleRateEdit() {
+            const modal = document.getElementById('quickSingleModal');
+            if (!modal) return;
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        }
+
+        function saveQuickSingleRate() {
+            const inputEl = document.getElementById('quickSingleInput');
+            const newVal = inputEl ? parseFlexibleNumber(inputEl.value) : 0;
+            if (newVal <= 0) {
+                showToast('Ingresa una tasa válida mayor a 0', 'error');
+                return;
+            }
+
+            const id = appState.activeRateId;
+            appState.rates[id] = Number(newVal.toFixed(2));
+            appState.rateConfig[id] = {
+                mode: 'manual',
+                spread: (appState.rateConfig[id] && appState.rateConfig[id].spread) || 0
+            };
+
+            saveStateToStorage();
+            closeQuickSingleRateEdit();
+            recalculateAll();
+            showToast('Tasa fijada manualmente', 'success');
+        }
+
+        /**************************************************************
+         * PAGO MÓVIL PROFILE & CLIPBOARD HELPERS
+         **************************************************************/
+        function openPagoMovilModal() {
+            const modal = document.getElementById('pagoMovilModal');
+            if (!modal) return;
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        }
+
+        function closePagoMovilModal() {
+            const modal = document.getElementById('pagoMovilModal');
+            if (!modal) return;
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        }
+
+        function getSavedPagoMovil() {
+            try {
+                const raw = localStorage.getItem('al_cambio_pm');
+                return raw ? JSON.parse(raw) : null;
+            } catch (e) {
+                return null;
+            }
+        }
+
+        function savePagoMovilData(event) {
+            event.preventDefault();
+            const bank = document.getElementById('pmBank').value;
+            const idType = document.getElementById('pmIdType').value;
+            const idNumber = document.getElementById('pmIdNumber').value.trim();
+            const phone = document.getElementById('pmPhone').value.trim();
+
+            const data = { bank, idType, idNumber, phone };
+            localStorage.setItem('al_cambio_pm', JSON.stringify(data));
+            updatePagoMovilPreviewBadge();
+            closePagoMovilModal();
+            showToast('Datos de Pago Móvil guardados', 'success');
+        }
+
+        function updatePagoMovilPreviewBadge() {
+            const pm = getSavedPagoMovil();
+            const badge = document.getElementById('pmConfiguredBadge');
+            const preview = document.getElementById('pmPreviewText');
+
+            if (pm && pm.idNumber && pm.phone) {
+                if (badge) {
+                    badge.textContent = 'Listo';
+                    badge.className = 'text-[10px] px-2 py-0.5 rounded-full bg-brand-500/20 text-brand-400 font-semibold';
+                }
+                if (preview) {
+                    preview.textContent = `${pm.bank} • ${pm.idType}-${pm.idNumber} • ${pm.phone}`;
+                }
+            }
+        }
+
+        function copyPagoMovilWithAmount() {
+            const pm = getSavedPagoMovil();
+            const vesFormatted = formatVeNumber(appState.vesAmount || 0);
+
+            if (!pm || !pm.idNumber || !pm.phone) {
+                openPagoMovilModal();
+                showToast('Configura tus datos de Pago Móvil primero', 'info');
+                return;
+            }
+
+            const text = `📲 *Datos de Pago Móvil*\n🏦 Banco: ${pm.bank}\n🪪 C.I/RIF: ${pm.idType}-${pm.idNumber}\n📞 Teléfono: ${pm.phone}\n💰 *Monto a pagar: Bs. ${vesFormatted}*`;
+            copyTextToClipboard(text, 'Pago Móvil + Monto copiado');
+        }
+
+        function copySummaryForPagoMovil() {
+            const activeDef = RATE_DEFINITIONS.find(d => d.id === appState.activeRateId) || RATE_DEFINITIONS[0];
+            const activeRate = appState.rates[activeDef.id] || activeDef.defaultRate;
+            const foreignFormatted = formatVeNumber(appState.foreignAmount || 0);
+            const vesFormatted = formatVeNumber(appState.vesAmount || 0);
+
+            const text = `💱 *Resumen Al Cambio*\n• Monto: ${activeDef.symbol} ${foreignFormatted} (${activeDef.name})\n• Tasa: Bs. ${formatVeNumber(activeRate)}\n• *Total: Bs. ${vesFormatted}*${appState.includeIgtf ? ' (Incl. 3% IGTF)' : ''}`;
+            copyTextToClipboard(text, 'Resumen copiado para WhatsApp');
+        }
+
+        function copyValue(type) {
+            if (type === 'foreign') {
+                const val = (appState.foreignAmount || 0).toFixed(2).replace('.', ',');
+                copyTextToClipboard(val, `Monto en divisa copiado (${val})`);
+            } else if (type === 'ves_clean') {
+                const clean = (appState.vesAmount || 0).toFixed(2).replace('.', ',');
+                copyTextToClipboard(clean, `Monto para banco copiado: ${clean}`);
+            } else {
+                const formatted = `Bs. ${formatVeNumber(appState.vesAmount || 0)}`;
+                copyTextToClipboard(formatted, `Copiado: ${formatted}`);
+            }
+        }
+
+        function copyTextToClipboard(text, successMsg) {
+            const tempInput = document.createElement('textarea');
+            tempInput.value = text;
+            tempInput.style.position = 'fixed';
+            tempInput.style.opacity = '0';
+            document.body.appendChild(tempInput);
+            tempInput.select();
+            try {
+                document.execCommand('copy');
+                showToast(successMsg || 'Copiado al portapapeles', 'success');
+            } catch (e) {
+                showToast('No se pudo copiar automáticamente', 'error');
+            }
+            document.body.removeChild(tempInput);
+        }
+
+        /**************************************************************
+         * NUMBER FORMATTING & TOAST UTILITIES
+         **************************************************************/
+        function formatVeNumber(num) {
+            const n = Number(num);
+            if (isNaN(n)) return '0,00';
+            return n.toLocaleString('es-VE', {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2
+            });
+        }
+
+        function parseFlexibleNumber(str) {
+            if (typeof str === 'number') return str;
+            if (!str) return 0;
+            let cleaned = String(str).trim().replace(/[^\d.,]/g, '');
+            if (!cleaned) return 0;
+
+            const lastComma = cleaned.lastIndexOf(',');
+            const lastDot = cleaned.lastIndexOf('.');
+
+            if (lastComma > -1 && lastDot > -1) {
+                if (lastComma > lastDot) {
+                    cleaned = cleaned.replace(/\./g, '').replace(',', '.');
+                } else {
+                    cleaned = cleaned.replace(/,/g, '');
+                }
+            } else if (lastComma > -1) {
+                cleaned = cleaned.replace(',', '.');
+            }
+
+            const parsed = parseFloat(cleaned);
+            return isNaN(parsed) ? 0 : parsed;
+        }
+
+        function showToast(message, type = 'success') {
+            const container = document.getElementById('toastContainer');
+            if (!container) return;
+
+            const colors = {
+                success: 'bg-slate-900 dark:bg-emerald-600 text-white border-emerald-500/30',
+                info: 'bg-slate-800 text-white border-slate-700',
+                error: 'bg-rose-600 text-white border-rose-400'
+            };
+
+            const icons = {
+                success: 'fa-solid fa-circle-check text-emerald-400 dark:text-white',
+                info: 'fa-solid fa-circle-info text-sky-400',
+                error: 'fa-solid fa-triangle-exclamation text-white'
+            };
+
+            const toast = document.createElement('div');
+            toast.className = `pointer-events-auto flex items-center gap-2.5 px-4 py-2.5 rounded-2xl shadow-xl border text-xs font-semibold transition-all duration-200 ${colors[type] || colors.success}`;
+            toast.innerHTML = `<i class="${icons[type] || icons.success}"></i><span>${message}</span>`;
+
+            container.appendChild(toast);
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                toast.style.transform = 'translateY(-6px)';
+                setTimeout(() => toast.remove(), 200);
+            }, 2400);
+        }
+    </script>
+</body>
+</html>
