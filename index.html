@@ -3,6 +3,16 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Al Cambio Personal - Calculadora de Divisas</title>
+    
+    <!-- PWA Web App Manifest & Mobile Meta Tags -->
+    <meta name="theme-color" content="#10b981">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Al Cambio">
+    <link id="appleTouchIconLink" rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'%3E%3Crect width='192' height='192' rx='42' fill='%2310b981'/%3E%3Ctext x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' fill='white' font-family='Arial,sans-serif' font-weight='bold' font-size='96'%3E$%3C/text%3E%3C/svg%3E">
+    <link id="dynamicManifestLink" rel="manifest" href="">
+
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
@@ -114,6 +124,13 @@
 
             <!-- Action Buttons (Optimized for quick touch) -->
             <div class="flex items-center gap-1 shrink-0">
+                <!-- Install App Button (Always available unless already running in standalone mode) -->
+                <button id="btnInstallApp" onclick="triggerInstallPrompt()" title="Instalar aplicación en Android / iPhone"
+                    class="flex items-center gap-1 px-2 sm:px-3 h-7 sm:h-8 rounded-lg text-[11px] font-bold bg-brand-500 hover:bg-brand-600 text-white shadow-sm shadow-brand-500/30 transition active:scale-95">
+                    <i class="fa-solid fa-mobile-screen text-xs"></i>
+                    <span class="text-[10px] sm:text-xs">Instalar</span>
+                </button>
+
                 <!-- Sync Rates Button -->
                 <button id="btnSyncRates" onclick="syncOnlineRates(false, false)" title="Actualizar tasas ahora"
                     class="flex items-center justify-center gap-1 h-7 sm:h-8 px-2 sm:px-2.5 rounded-lg text-[11px] font-semibold bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 transition active:scale-95">
@@ -527,175 +544,7 @@
             </div>
 
             <form id="pagoMovilForm" onsubmit="savePagoMovilData(event)" class="p-4 sm:p-6 space-y-3.5 max-h-[80vh] overflow-y-auto">
-                <div class="space-y-1">
-                    <label class="text-xs font-semibold text-slate-600 dark:text-slate-300">Banco</label>
-                    <select id="pmBank" class="w-full bg-slate-50 dark:bg-slate-900 rounded-2xl border-2 border-slate-200 dark:border-slate-800 px-3.5 py-2.5 text-sm font-medium focus:outline-none focus:border-brand-500">
-                        <option value="Banesco (0134)">Banesco (0134)</option>
-                        <option value="Banco de Venezuela (0102)">Banco de Venezuela (0102)</option>
-                        <option value="BBVA Provincial (0108)">BBVA Provincial (0108)</option>
-                        <option value="Mercantil (0105)">Mercantil (0105)</option>
-                        <option value="BOD / BNC (0191)">BNC / BOD (0191)</option>
-                        <option value="Banco Nacional de Crédito (0191)">Banco Nacional de Crédito (0191)</option>
-                        <option value="Bicentenario (0175)">Bicentenario (0175)</option>
-                        <option value="Banco Activo (0171)">Banco Activo (0171)</option>
-                        <option value="100% Banco (0156)">100% Banco (0156)</option>
-                        <option value="Banplus (0174)">Banplus (0174)</option>
-                        <option value="Banco Caroní (0128)">Banco Caroní (0128)</option>
-                        <option value="Tesoro (0163)">Tesoro (0163)</option>
-                    </select>
-                </div>
-
-                <div class="grid grid-cols-3 gap-2">
-                    <div class="space-y-1">
-                        <label class="text-xs font-semibold text-slate-600 dark:text-slate-300">Tipo</label>
-                        <select id="pmIdType" class="w-full bg-slate-50 dark:bg-slate-900 rounded-2xl border-2 border-slate-200 dark:border-slate-800 px-3 py-2.5 text-sm font-medium focus:outline-none focus:border-brand-500">
-                            <option value="V">V</option>
-                            <option value="J">J</option>
-                            <option value="E">E</option>
-                            <option value="P">P</option>
-                        </select>
-                    </div>
-                    <div class="col-span-2 space-y-1">
-                        <label class="text-xs font-semibold text-slate-600 dark:text-slate-300">Cédula / RIF</label>
-                        <input type="text" id="pmIdNumber" inputmode="numeric" placeholder="12345678" required
-                            class="w-full bg-slate-50 dark:bg-slate-900 rounded-2xl border-2 border-slate-200 dark:border-slate-800 px-3.5 py-2.5 text-sm font-mono font-medium focus:outline-none focus:border-brand-500">
-                    </div>
-                </div>
-
-                <div class="space-y-1">
-                    <label class="text-xs font-semibold text-slate-600 dark:text-slate-300">Teléfono (11 dígitos)</label>
-                    <input type="tel" id="pmPhone" inputmode="numeric" placeholder="04121234567" required
-                        class="w-full bg-slate-50 dark:bg-slate-900 rounded-2xl border-2 border-slate-200 dark:border-slate-800 px-3.5 py-2.5 text-sm font-mono font-medium focus:outline-none focus:border-brand-500">
-                </div>
-
-                <div class="pt-2 flex items-center gap-3">
-                    <button type="button" onclick="closePagoMovilModal()" class="w-1/2 py-3 rounded-2xl font-semibold text-xs bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
-                        Cancelar
-                    </button>
-                    <button type="submit" class="w-1/2 py-3 rounded-2xl font-semibold text-xs bg-brand-500 hover:bg-brand-600 text-white shadow-lg shadow-brand-500/20">
-                        Guardar Datos
-                    </button>
-                </div>
-            </form>
-        </div>
-    </div>
-
-    <!-- MODAL 4: HISTÓRICO DEL DÓLAR BCV (Al Cambio Style) -->
-    <div id="historyModal" class="fixed inset-0 z-50 hidden items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-950/60 backdrop-blur-sm">
-        <div class="bg-white dark:bg-darkcard w-full max-w-xl rounded-t-3xl sm:rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden flex flex-col max-h-[90vh]">
-            <!-- Modal Header -->
-            <div class="px-4 sm:px-6 py-3.5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between shrink-0">
-                <div class="flex items-center gap-2.5">
-                    <div class="w-9 h-9 rounded-xl bg-emerald-500/15 text-emerald-500 flex items-center justify-center text-sm font-bold">
-                        <i class="fa-solid fa-landmark"></i>
-                    </div>
-                    <div>
-                        <h3 class="font-bold text-sm sm:text-base text-slate-900 dark:text-white flex items-center gap-1.5">
-                            <span>Histórico Oficial BCV</span>
-                            <span id="historyTodayBadge" class="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400">Bs. --</span>
-                        </h3>
-                        <p class="text-[11px] text-slate-500 dark:text-slate-400">Evolución diaria, consulta por fecha y uso en calculadora</p>
-                    </div>
-                </div>
-                <button onclick="closeHistoryModal()" class="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 hover:text-slate-800 dark:hover:text-white flex items-center justify-center">
-                    <i class="fa-solid fa-xmark"></i>
-                </button>
-            </div>
-
-            <!-- Modal Body (Scrollable) -->
-            <div class="p-4 sm:p-5 space-y-4 overflow-y-auto">
-                <!-- Controls: Currency Type & Period Filter (7D, 15D, 30D) -->
-                <div class="flex flex-wrap items-center justify-between gap-2">
-                    <!-- Currency selector -->
-                    <div class="inline-flex bg-slate-100 dark:bg-slate-900 p-1 rounded-xl border border-slate-200/70 dark:border-slate-800">
-                        <button type="button" id="histCurrUsd" onclick="setHistoryCurrency('usd')"
-                            class="px-3 py-1 rounded-lg text-xs font-bold transition bg-white dark:bg-darkcard text-slate-900 dark:text-white shadow-xs">
-                            $ Dólar BCV
-                        </button>
-                        <button type="button" id="histCurrEur" onclick="setHistoryCurrency('eur')"
-                            class="px-3 py-1 rounded-lg text-xs font-bold transition text-slate-500 dark:text-slate-400">
-                            € Euro BCV
-                        </button>
-                    </div>
-
-                    <!-- Period selector -->
-                    <div class="inline-flex bg-slate-100 dark:bg-slate-900 p-1 rounded-xl border border-slate-200/70 dark:border-slate-800">
-                        <button type="button" id="histRange7" onclick="setHistoryDays(7)"
-                            class="px-2.5 py-1 rounded-lg text-xs font-mono font-bold transition text-slate-500 dark:text-slate-400">
-                            7D
-                        </button>
-                        <button type="button" id="histRange15" onclick="setHistoryDays(15)"
-                            class="px-2.5 py-1 rounded-lg text-xs font-mono font-bold transition bg-white dark:bg-darkcard text-brand-600 dark:text-brand-400 shadow-xs">
-                            15D
-                        </button>
-                        <button type="button" id="histRange30" onclick="setHistoryDays(30)"
-                            class="px-2.5 py-1 rounded-lg text-xs font-mono font-bold transition text-slate-500 dark:text-slate-400">
-                            30D
-                        </button>
-                    </div>
-                </div>
-
-                <!-- Summary KPI Cards -->
-                <div class="grid grid-cols-3 gap-2">
-                    <div class="bg-slate-50 dark:bg-slate-900/70 rounded-2xl p-2.5 border border-slate-200/70 dark:border-slate-800">
-                        <span class="text-[10px] font-semibold text-slate-400 block">Variación Período</span>
-                        <strong id="histPeriodVar" class="font-mono text-xs sm:text-sm text-amber-500">+0,00%</strong>
-                    </div>
-                    <div class="bg-slate-50 dark:bg-slate-900/70 rounded-2xl p-2.5 border border-slate-200/70 dark:border-slate-800">
-                        <span class="text-[10px] font-semibold text-slate-400 block">Mínimo / Máximo</span>
-                        <strong id="histMinMax" class="font-mono text-[11px] sm:text-xs text-slate-800 dark:text-slate-200">-- / --</strong>
-                    </div>
-                    <div class="bg-slate-50 dark:bg-slate-900/70 rounded-2xl p-2.5 border border-slate-200/70 dark:border-slate-800">
-                        <span class="text-[10px] font-semibold text-slate-400 block">Promedio Período</span>
-                        <strong id="histAvg" class="font-mono text-xs sm:text-sm text-slate-800 dark:text-slate-200">Bs. --</strong>
-                    </div>
-                </div>
-
-                <!-- Interactive SVG Area Trend Chart -->
-                <div class="bg-slate-50 dark:bg-slate-900/80 rounded-2xl p-3 border border-slate-200/80 dark:border-slate-800">
-                    <div class="flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400 mb-1.5 px-1">
-                        <span id="histChartLabel" class="font-semibold">Tendencia últimos 15 días</span>
-                        <span id="histPointInspect" class="font-mono font-bold text-emerald-600 dark:text-emerald-400">Toca un punto para ver detalle</span>
-                    </div>
-                    <div id="historyChartContainer" class="w-full h-36 sm:h-40 relative">
-                        <!-- Dynamic SVG rendered here -->
-                    </div>
-                </div>
-
-                <!-- Specific Date Calendar Lookup & Custom Entry -->
-                <div class="bg-emerald-500/5 dark:bg-emerald-500/10 rounded-2xl p-3 border border-emerald-500/20 space-y-2.5">
-                    <div class="flex items-center justify-between">
-                        <span class="text-xs font-bold text-slate-800 dark:text-slate-100 flex items-center gap-1.5">
-                            <i class="fa-regular fa-calendar-check text-emerald-500"></i>
-                            Consultar o registrar fecha exacta
-                        </span>
-                        <span id="dateLookupStatus" class="text-[10px] text-slate-500 dark:text-slate-400">Selecciona un día</span>
-                    </div>
-                    <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
-                        <input
-                            type="date"
-                            id="historyDatePicker"
-                            onchange="lookupRateBySpecificDate(this.value)"
-                            class="flex-1 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 px-3 py-2 text-xs font-mono font-semibold text-slate-800 dark:text-slate-100 focus:outline-none focus:border-brand-500"
-                        >
-                        <div id="dateLookupResultBox" class="flex items-center justify-between sm:justify-end gap-2 bg-white dark:bg-slate-900 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700">
-                            <div>
-                                <span class="text-[10px] text-slate-400 block leading-none">Tasa del día</span>
-                                <strong id="dateLookupRateText" class="font-mono text-xs sm:text-sm text-slate-900 dark:text-white">Bs. --</strong>
-                            </div>
-                            <button
-                                type="button"
-                                id="btnUseDateRate"
-                                onclick="applyLookedUpDateRate()"
-                                class="px-2.5 py-1.5 rounded-lg bg-brand-500 hover:bg-brand-600 text-white text-[11px] font-bold transition active:scale-95"
-                            >
-                                Usar tasa
-                            </button>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Daily Breakdown List -->
+                    <!--Daily Breakdown List -->
                 <div class="space-y-2">
                     <div class="flex items-center justify-between px-1">
                         <h4 class="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
@@ -711,11 +560,230 @@
         </div>
     </div>
 
+    <!-- MODAL 5: ASISTENTE DE INSTALACIÓN ANDROID / iOS -->
+    <div id="installGuideModal" class="fixed inset-0 z-50 hidden items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-950/60 backdrop-blur-sm">
+        <div class="bg-white dark:bg-darkcard w-full max-w-md rounded-t-3xl sm:rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden flex flex-col max-h-[90vh]">
+            <div class="px-5 py-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
+                <div class="flex items-center gap-2.5">
+                    <div class="w-9 h-9 rounded-xl bg-brand-500 text-white flex items-center justify-center text-sm shadow-sm">
+                        <i class="fa-brands fa-android text-base"></i>
+                    </div>
+                    <div>
+                        <h3 class="font-bold text-sm sm:text-base text-slate-900 dark:text-white">Instalar en tu Teléfono</h3>
+                        <p id="installEnvBadge" class="text-[11px] text-brand-600 dark:text-brand-400 font-semibold">Asistente de instalación directa</p>
+                    </div>
+                </div>
+                <button onclick="closeInstallGuideModal()" class="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 hover:text-slate-800 dark:hover:text-white flex items-center justify-center">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+
+            <div class="p-5 space-y-4 overflow-y-auto text-xs text-slate-600 dark:text-slate-300">
+                <!-- Alert explaining WHY Android blocks direct HTML install -->
+                <div id="installDiagnosticBox" class="bg-amber-500/10 border border-amber-500/30 text-amber-800 dark:text-amber-300 rounded-2xl p-3.5 space-y-1.5">
+                    <div class="font-bold flex items-center gap-1.5 text-xs">
+                        <i class="fa-solid fa-circle-info text-amber-500"></i>
+                        <span>¿Por qué Android no deja instalarlo directo?</span>
+                    </div>
+                    <p id="installDiagnosticText" class="text-[11px] leading-relaxed">
+                        Por seguridad, Android bloquea el botón de instalación si abres la app dentro de una vista previa, desde WhatsApp o desde "Mis Archivos / Visor HTML".
+                    </p>
+                </div>
+
+                <!-- Step by step for Android Chrome -->
+                <div class="space-y-2.5">
+                    <h4 class="font-bold text-slate-900 dark:text-white text-xs uppercase tracking-wider">
+                        Pasos para poner el icono en tu pantalla de inicio:
+                    </h4>
+
+                    <div class="flex items-start gap-3 bg-slate-50 dark:bg-slate-900/70 p-3 rounded-2xl border border-slate-200/70 dark:border-slate-800">
+                        <span class="w-6 h-6 rounded-full bg-brand-500 text-white font-bold text-xs flex items-center justify-center shrink-0">1</span>
+                        <div>
+                            <strong class="text-slate-900 dark:text-white block">Ábrelo en Google Chrome</strong>
+                            <span class="text-[11px] text-slate-500 dark:text-slate-400">Si estás en un visor interno, toca los 3 puntos <strong class="text-slate-700 dark:text-slate-200">(⋮)</strong> arriba a la derecha y elige <strong>"Abrir en Chrome"</strong>.</span>
+                        </div>
+                    </div>
+
+                    <div class="flex items-start gap-3 bg-slate-50 dark:bg-slate-900/70 p-3 rounded-2xl border border-slate-200/70 dark:border-slate-800">
+                        <span class="w-6 h-6 rounded-full bg-brand-500 text-white font-bold text-xs flex items-center justify-center shrink-0">2</span>
+                        <div>
+                            <strong class="text-slate-900 dark:text-white block">Menú de Chrome (⋮) → Agregar a pantalla principal</strong>
+                            <span class="text-[11px] text-slate-500 dark:text-slate-400">En Chrome, toca el menú <strong class="text-slate-700 dark:text-slate-200">(⋮)</strong> y selecciona <strong>"Agregar a la pantalla principal"</strong> o <strong>"Instalar aplicación"</strong>.</span>
+                        </div>
+                    </div>
+
+                    <div class="flex items-start gap-3 bg-slate-50 dark:bg-slate-900/70 p-3 rounded-2xl border border-slate-200/70 dark:border-slate-800">
+                        <span class="w-6 h-6 rounded-full bg-brand-500 text-white font-bold text-xs flex items-center justify-center shrink-0">3</span>
+                        <div>
+                            <strong class="text-slate-900 dark:text-white block">¡Si descargaste el archivo .html en tu celular!</strong>
+                            <span class="text-[11px] text-slate-500 dark:text-slate-400">Android no instala archivos <code class="font-mono">file:///</code>. Súbelo gratis en 5 segundos arrastrando el archivo a <strong>app.netlify.com/drop</strong> o <strong>tiiny.host</strong> desde tu navegador para obtener un enlace instalable como APK.</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Action buttons -->
+                <div class="pt-1 flex flex-col gap-2">
+                    <button type="button" onclick="downloadStandaloneHtmlFile()"
+                        class="w-full py-3 px-4 rounded-2xl font-bold text-xs bg-slate-900 dark:bg-slate-800 text-white hover:bg-slate-800 flex items-center justify-center gap-2 transition active:scale-95">
+                        <i class="fa-solid fa-file-arrow-down text-brand-400"></i>
+                        <span>Descargar archivo AlCambio.html en mi teléfono</span>
+                    </button>
+                    <button type="button" onclick="closeInstallGuideModal()"
+                        class="w-full py-2.5 rounded-2xl font-semibold text-xs bg-brand-500 text-white shadow-md shadow-brand-500/20 transition active:scale-95">
+                        Entendido
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- JavaScript Application Logic -->
     <script>
         /**************************************************************
-         * CONSTANTS & RATE DEFINITIONS
+         * PWA INSTALL PROMPT, MANIFEST & SERVICE WORKER
          **************************************************************/
+        let deferredInstallPrompt = null;
+
+        function setupDynamicPwaManifest() {
+            try {
+                // Hide install button if already running as installed standalone app
+                const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+                const installBtn = document.getElementById('btnInstallApp');
+                if (isStandalone && installBtn) {
+                    installBtn.style.display = 'none';
+                }
+
+                const svgIcon = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect width='512' height='512' rx='115' fill='%2310b981'/%3E%3Ctext x='50%25' y='55%25' dominant-baseline='middle' text-anchor='middle' fill='white' font-family='Arial,sans-serif' font-weight='bold' font-size='270'%3E$%3C/text%3E%3C/svg%3E";
+                const validStartUrl = (window.location.protocol === 'http:' || window.location.protocol === 'https:')
+                    ? window.location.href.split('#')[0]
+                    : './index.html';
+
+                const manifestObj = {
+                    id: 'al-cambio-personal-ve',
+                    name: 'Al Cambio Personal - Calculadora de Divisas',
+                    short_name: 'Al Cambio',
+                    description: 'Calculadora de divisas BCV, Euro, Binance, Efectivo y Zelle en tiempo real.',
+                    start_url: validStartUrl,
+                    display: 'standalone',
+                    orientation: 'portrait',
+                    background_color: '#0f172a',
+                    theme_color: '#10b981',
+                    icons: [
+                        {
+                            src: svgIcon,
+                            sizes: '192x192 512x512',
+                            type: 'image/svg+xml',
+                            purpose: 'any maskable'
+                        },
+                        {
+                            src: 'https://placehold.co/192x192/10b981/ffffff.png?text=$',
+                            sizes: '192x192',
+                            type: 'image/png',
+                            purpose: 'any'
+                        },
+                        {
+                            src: 'https://placehold.co/512x512/10b981/ffffff.png?text=$',
+                            sizes: '512x512',
+                            type: 'image/png',
+                            purpose: 'any'
+                        }
+                    ]
+                };
+
+                const manifestStr = JSON.stringify(manifestObj);
+                const manifestUri = 'data:application/manifest+json;charset=utf-8,' + encodeURIComponent(manifestStr);
+                const linkEl = document.getElementById('dynamicManifestLink');
+                if (linkEl) linkEl.setAttribute('href', manifestUri);
+            } catch (err) {
+                console.warn('Error generando manifiesto PWA:', err);
+            }
+        }
+
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            deferredInstallPrompt = e;
+            const installBtn = document.getElementById('btnInstallApp');
+            if (installBtn) {
+                installBtn.style.display = 'flex';
+                installBtn.classList.add('animate-pulse-soft');
+            }
+        });
+
+        async function triggerInstallPrompt() {
+            if (deferredInstallPrompt) {
+                deferredInstallPrompt.prompt();
+                const choiceResult = await deferredInstallPrompt.userChoice;
+                if (choiceResult.outcome === 'accepted') {
+                    showToast('¡Aplicación instalada con éxito!', 'success');
+                }
+                deferredInstallPrompt = null;
+                return;
+            }
+            // Open smart Android/iOS install assistant modal if native prompt is blocked by browser context
+            openInstallGuideModal();
+        }
+
+        function openInstallGuideModal() {
+            const modal = document.getElementById('installGuideModal');
+            const badge = document.getElementById('installEnvBadge');
+            const diagText = document.getElementById('installDiagnosticText');
+            if (!modal) return;
+
+            const proto = window.location.protocol;
+            const isInIframe = window.self !== window.top;
+
+            if (isInIframe) {
+                if (badge) badge.textContent = 'Modo Vista Previa detectado';
+                if (diagText) diagText.textContent = 'Estás viendo la app dentro de una ventana de vista previa. Descarga el archivo con el botón de abajo o ábrelo en una pestaña directa de Chrome en Android.';
+            } else if (proto === 'file:' || proto === 'content:') {
+                if (badge) badge.textContent = 'Archivo local en Android detectado';
+                if (diagText) diagText.textContent = 'Abriste el archivo desde "Descargas / Mis Archivos". Android no permite instalar archivos locales directamente; ábrelo con Chrome o súbelo a Netlify Drop / Tiiny.host para instalarlo como APK.';
+            } else {
+                if (badge) badge.textContent = 'Instalación rápida en 2 toques';
+                if (diagText) diagText.textContent = 'Toca el menú de 3 puntos (⋮) arriba a la derecha en tu navegador Chrome y selecciona "Agregar a la pantalla principal" o "Instalar aplicación".';
+            }
+
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        }
+
+        function closeInstallGuideModal() {
+            const modal = document.getElementById('installGuideModal');
+            if (!modal) return;
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        }
+
+        function downloadStandaloneHtmlFile() {
+            try {
+                const htmlContent = '<!DOCTYPE html>\n' + document.documentElement.outerHTML;
+                const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'AlCambioPersonal.html';
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                setTimeout(() => URL.revokeObjectURL(url), 1500);
+                showToast('Archivo AlCambioPersonal.html descargado', 'success');
+            } catch (e) {
+                showToast('No se pudo iniciar la descarga', 'error');
+            }
+        }
+
+        window.addEventListener('appinstalled', () => {
+            showToast('Aplicación instalada correctamente en tu dispositivo', 'success');
+            const installBtn = document.getElementById('btnInstallApp');
+            if (installBtn) installBtn.style.display = 'none';
+            deferredInstallPrompt = null;
+        });
+
+        setupDynamicPwaManifest();
+
+        /**************************************************************
+         * CONSTANTS & RATE DEFINITIONS
+         ********************************----------------**************/
         const RATE_DEFINITIONS = [
             {
                 id: 'bcv_usd',
@@ -992,6 +1060,7 @@
                 applyAutoRateRules();
 
                 appState.lastUpdated = new Date();
+                ensureThirtyDayBaseline(true);
                 recordTodayInBcvHistory();
                 fetchOnlineBcvHistory();
                 saveStateToStorage();
@@ -1771,28 +1840,50 @@
                 try {
                     const parsed = JSON.parse(savedHist);
                     if (Array.isArray(parsed) && parsed.length > 0) {
-                        appState.bcvHistory = parsed;
+                        appState.bcvHistory = parsed.filter(item => item && item.date && Number(item.usd) > 0);
                     }
                 } catch (e) {}
             }
 
             // Ensure we have a complete 30-day baseline anchored to current BCV rate
-            ensureThirtyDayBaseline();
+            ensureThirtyDayBaseline(false);
             recordTodayInBcvHistory();
         }
 
-        function ensureThirtyDayBaseline() {
-            const currentUsd = appState.rates['bcv_usd'] || appState.rawApi.bcvUsd || 45.50;
-            const eurRatio = appState.rawApi.eurUsdRatio || 1.085;
+        function ensureThirtyDayBaseline(forceRecalibrateIfOutdated = false) {
+            const currentUsd = Number(appState.rawApi.bcvUsd || appState.rates['bcv_usd'] || 45.50);
+            const eurRatio = Number(appState.rawApi.eurUsdRatio || 1.085);
             const existingMap = new Map();
 
-            appState.bcvHistory.forEach(item => {
-                if (item && item.date && item.usd > 0) {
-                    existingMap.set(item.date, item);
+            // Check if stored history is anchored to an old default rate (e.g. >30% gap from current live BCV rate)
+            let hasStaleScale = false;
+            if (forceRecalibrateIfOutdated && appState.bcvHistory.length > 2) {
+                const recentItem = appState.bcvHistory[appState.bcvHistory.length - 2];
+                if (recentItem && Math.abs(recentItem.usd - currentUsd) / currentUsd > 0.30) {
+                    hasStaleScale = true;
                 }
-            });
+            }
+
+            if (!hasStaleScale) {
+                appState.bcvHistory.forEach(item => {
+                    if (item && item.date && Number(item.usd) > 0) {
+                        existingMap.set(item.date, {
+                            date: item.date,
+                            usd: Number(item.usd),
+                            eur: Number(item.eur || (item.usd * eurRatio).toFixed(2))
+                        });
+                    }
+                });
+            }
 
             const today = new Date();
+            const todayIso = getIsoDateString(today);
+            existingMap.set(todayIso, {
+                date: todayIso,
+                usd: Number(currentUsd.toFixed(2)),
+                eur: Number((appState.rates['bcv_eur'] || (currentUsd * eurRatio)).toFixed(2))
+            });
+
             let runningRate = currentUsd;
 
             // Walk backwards 35 days to guarantee a realistic smooth series if any dates are missing
@@ -1803,7 +1894,7 @@
                 const dayOfWeek = d.getDay(); // 0 = Sun, 6 = Sat (BCV stays flat on weekends)
 
                 if (existingMap.has(iso)) {
-                    runningRate = existingMap.get(iso).usd;
+                    runningRate = Number(existingMap.get(iso).usd);
                 } else {
                     const usdVal = Number(runningRate.toFixed(2));
                     const eurVal = Number((usdVal * eurRatio).toFixed(2));
